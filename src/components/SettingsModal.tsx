@@ -230,7 +230,7 @@ export function SettingsModal({
 								</label>
 								{hasServerKey && (
 									<span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-										<ShieldCheck className="h-3.5 w-3.5" /> Configurada no .env.local
+										<ShieldCheck className="h-3.5 w-3.5" /> Configurada no environment
 									</span>
 								)}
 							</div>

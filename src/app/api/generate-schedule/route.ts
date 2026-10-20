@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
 			return NextResponse.json(
 				{
 					error:
-            'Chave do Gemini (GEMINI_API_KEY) não encontrada. Configure a variável no arquivo .env.local ou insira sua chave no botão de Configurações no cabeçalho.',
+            'Chave do Gemini (GEMINI_API_KEY) não encontrada. Configure a variável no environment ou insira sua chave no botão de Configurações no cabeçalho.',
 				},
 				{ status: 401 }
 			);
