@@ -24,7 +24,7 @@ interface HeaderProps {
   onToggleTheme: () => void;
 }
 
-const MONTH_NAMES = [
+export const MONTH_NAMES = [
 	'Janeiro',
 	'Fevereiro',
 	'Março',

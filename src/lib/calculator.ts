@@ -68,6 +68,42 @@ export function calculateShiftWorkedMinutes(shift: ShiftTime): { workedMinutes: 
 }
 
 /**
+ * Determina a meta de trabalho esperada para um determinado dia.
+ * Em escalas com sábados reduzidos (ex: 6x1 comercial de 44h onde Seg-Sex é 8h e Sábado é 4h),
+ * a meta do sábado deve ser de 4h (240 min) para não gerar falso déficit nem falso extra.
+ */
+export function getDayExpectedMinutes(
+	day: ScheduleDay,
+	defaultDailyExpectedMinutes: number = 8 * 60
+): number {
+	// Se o dia não for de trabalho regular, não há meta esperada
+	if (day.dayType !== 'work') {
+		return 0;
+	}
+
+	// 1. Se o dia possuir uma meta contratual expressa gravada
+	if (typeof day.expectedMinutes === 'number' && day.expectedMinutes >= 0) {
+		return day.expectedMinutes;
+	}
+
+	// 2. Se for Sábado (dayOfWeek === 6):
+	// Na escala padrão 6x1 (44h semanais com 5 dias de 8h), o sábado tem carga regular de 4 horas (240 min).
+	if (day.dayOfWeek === 6) {
+		const { workedMinutes } = calculateShiftWorkedMinutes(day);
+		// Se o trabalhador cumpriu o turno habitual de sábado (até 5h / sem tarde):
+		if (workedMinutes > 0 && workedMinutes <= 300) {
+			return 240; // 4h
+		}
+		// Se a meta geral diária estiver em 8h (480m), o sábado padrão 6x1 é de 4h (240m)
+		if (defaultDailyExpectedMinutes >= 480) {
+			return 240;
+		}
+	}
+
+	return defaultDailyExpectedMinutes;
+}
+
+/**
  * Apuração individual de um dia (com suporte especial a Feriados e Horas Extras 100%)
  */
 export function calculateDay(
@@ -128,7 +164,7 @@ export function calculateDay(
 	}
 
 	const { workedMinutes, breakMinutes } = calculateShiftWorkedMinutes(day);
-	const expectedMinutes = dailyExpectedMinutes;
+	const expectedMinutes = getDayExpectedMinutes(day, dailyExpectedMinutes);
 	const balanceMinutes = workedMinutes - expectedMinutes;
 
 	return {
@@ -175,7 +211,8 @@ export function calculateMonthSummary(
 			workDaysCount++;
 			const { workedMinutes } = calculateShiftWorkedMinutes(day);
 			totalWorkedMinutes += workedMinutes;
-			totalExpectedMinutes += dailyExpectedMinutes;
+			const expectedMinutes = getDayExpectedMinutes(day, dailyExpectedMinutes);
+			totalExpectedMinutes += expectedMinutes;
 		} else {
 			offDaysCount++;
 		}
@@ -253,6 +290,8 @@ export function applyAiRulesToMonth(
 
 		if (!matchingRule) return day;
 
+		const { workedMinutes: ruleWorkedMins } = calculateShiftWorkedMinutes(matchingRule);
+
 		return {
 			...day,
 			dayType: matchingRule.dayType,
@@ -260,9 +299,85 @@ export function applyAiRulesToMonth(
 			breakStartTime: matchingRule.dayType === 'work' ? matchingRule.breakStartTime || '' : '',
 			breakEndTime: matchingRule.dayType === 'work' ? matchingRule.breakEndTime || '' : '',
 			endTime: matchingRule.dayType === 'work' ? matchingRule.endTime || '' : '',
+			expectedMinutes: matchingRule.dayType === 'work' ? ruleWorkedMins : 0,
 			isCustom: true,
 		};
 	});
+}
+
+export interface WeekSummary {
+	weekNumber: number;
+	startDate: string;
+	endDate: string;
+	workedMinutes: number;
+	expectedMinutes: number;
+	balanceMinutes: number;
+	formattedWorked: string;
+	formattedExpected: string;
+	formattedBalance: string;
+	isOvertime: boolean;
+	isDeficit: boolean;
+}
+
+/**
+ * Agrupa os dias do mês em blocos semanais e calcula o saldo de cada semana.
+ * Permite a verificação semanal de jornada (Art. 7º, XIII da CF/88), compensando dias da mesma semana.
+ */
+export function calculateMonthWeeks(
+	days: ScheduleDay[],
+	dailyExpectedMinutes: number = 8 * 60
+): WeekSummary[] {
+	if (days.length === 0) return [];
+
+	const weeks: WeekSummary[] = [];
+	let currentWeekDays: ScheduleDay[] = [];
+	let weekNumber = 1;
+
+	days.forEach((day, idx) => {
+		currentWeekDays.push(day);
+
+		// Fecha a semana no Domingo (dayOfWeek === 0) ou no último dia do mês
+		const isSunday = day.dayOfWeek === 0;
+		const isLastDay = idx === days.length - 1;
+
+		if (isSunday || isLastDay) {
+			let weekWorked = 0;
+			let weekExpected = 0;
+
+			currentWeekDays.forEach((d) => {
+				const isHoliday = d.isHoliday || d.dayType === 'holiday';
+				if (isHoliday && d.workedOnHoliday) {
+					const { workedMinutes } = calculateShiftWorkedMinutes(d);
+					weekWorked += workedMinutes;
+				} else if (d.dayType === 'work' && (d.startTime || d.endTime)) {
+					const { workedMinutes } = calculateShiftWorkedMinutes(d);
+					weekWorked += workedMinutes;
+					weekExpected += getDayExpectedMinutes(d, dailyExpectedMinutes);
+				}
+			});
+
+			const weekBalance = weekWorked - weekExpected;
+
+			weeks.push({
+				weekNumber,
+				startDate: currentWeekDays[0].date,
+				endDate: currentWeekDays[currentWeekDays.length - 1].date,
+				workedMinutes: weekWorked,
+				expectedMinutes: weekExpected,
+				balanceMinutes: weekBalance,
+				formattedWorked: minutesToTime(weekWorked),
+				formattedExpected: minutesToTime(weekExpected),
+				formattedBalance: minutesToTime(weekBalance, true),
+				isOvertime: weekBalance > 0,
+				isDeficit: weekBalance < 0,
+			});
+
+			weekNumber++;
+			currentWeekDays = [];
+		}
+	});
+
+	return weeks;
 }
 
 /**

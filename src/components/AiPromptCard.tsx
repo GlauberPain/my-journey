@@ -13,22 +13,126 @@ interface AiPromptCardProps {
   onOpenLegalModal?: () => void;
 }
 
-const PRESETS = [
+interface PresetItem {
+	label: string;
+	prompt: string;
+	schedule: AiRuleResponse;
+}
+
+const PRESETS: PresetItem[] = [
 	{
-		label: 'Escala 6x1 (44h)',
-		prompt: 'Trabalho na escala 6x1 de segunda a sábado das 08:00 às 16:20 com 1 hora de almoço das 12:00 às 13:00, e folgo aos domingos.',
+		label: '6x1 Comercial (Seg-Sex 8h + Sáb 4h)',
+		prompt: 'Escala 6x1 de segunda a sexta das 08:00 às 17:00 com 1 hora de intervalo, e no sábado das 08:00 às 12:00.',
+		schedule: {
+			formula: '44h semanais (Seg-Sex 8h, Sáb 4h)',
+			explanation: 'Escala 6x1: 8h diárias de segunda a sexta e 4h no sábado, totalizando 44h semanais.',
+			weeklyTargetHours: 44,
+			dailyTargetHours: 8,
+			rules: [
+				{ dayOfWeek: 1, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 2, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 3, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 4, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 5, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 6, dayType: 'work', startTime: '08:00', breakStartTime: '', breakEndTime: '', endTime: '12:00' },
+				{ dayOfWeek: 0, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+			],
+		},
 	},
 	{
-		label: '5x2 Padrão (8h48/dia)',
-		prompt: 'Trabalho de segunda a sexta das 08:00 às 17:48 com 1 hora de almoço das 12:00 às 13:00, folgando sábado e domingo.',
+		label: '6x1 Integral (Seg-Sex 8h-18h + Sáb 8h-12h)',
+		prompt: 'Escala 6x1 de segunda a sexta das 08:00 às 18:00 com 1 hora de intervalo, e no sábado das 08:00 às 12:00.',
+		schedule: {
+			formula: '49h semanais (Seg-Sex 9h, Sáb 4h)',
+			explanation: 'Escala 6x1: 9h diárias de segunda a sexta e 4h no sábado, totalizando 49h semanais.',
+			weeklyTargetHours: 49,
+			dailyTargetHours: 9,
+			rules: [
+				{ dayOfWeek: 1, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '18:00' },
+				{ dayOfWeek: 2, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '18:00' },
+				{ dayOfWeek: 3, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '18:00' },
+				{ dayOfWeek: 4, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '18:00' },
+				{ dayOfWeek: 5, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '18:00' },
+				{ dayOfWeek: 6, dayType: 'work', startTime: '08:00', breakStartTime: '', breakEndTime: '', endTime: '12:00' },
+				{ dayOfWeek: 0, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+			],
+		},
 	},
 	{
-		label: '40h Semanais (8h/dia)',
-		prompt: 'Trabalho de segunda a sexta das 08:00 às 17:00 com 1 hora de almoço, finais de semana folga.',
+		label: '5x2 Escritório (8h48/dia - 44h)',
+		prompt: 'Jornada 5x2 de segunda a sexta das 08:00 às 17:48 com 1 hora de intervalo.',
+		schedule: {
+			formula: '44h semanais (8h48/dia)',
+			explanation: 'Jornada 5x2: 8h48 diárias de segunda a sexta-feira, totalizando 44h semanais.',
+			weeklyTargetHours: 44,
+			dailyTargetHours: 8.8,
+			rules: [
+				{ dayOfWeek: 1, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+				{ dayOfWeek: 2, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+				{ dayOfWeek: 3, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+				{ dayOfWeek: 4, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+				{ dayOfWeek: 5, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+				{ dayOfWeek: 6, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+				{ dayOfWeek: 0, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+			],
+		},
 	},
 	{
-		label: '12x36 Diurno',
-		prompt: 'Escala 12x36 das 07:00 às 19:00 com 1 hora de almoço das 12:00 às 13:00.',
+		label: '5x2 Seg-Qui 9h + Sex 8h (44h)',
+		prompt: 'Jornada 5x2 de segunda a quinta das 08:00 às 18:00 e sexta das 08:00 às 17:00, com 1 hora de intervalo.',
+		schedule: {
+			formula: '44h semanais (Seg-Qui 9h, Sex 8h)',
+			explanation: 'Jornada 5x2: 9h de segunda a quinta e 8h na sexta-feira, totalizando 44h semanais.',
+			weeklyTargetHours: 44,
+			dailyTargetHours: 8.8,
+			rules: [
+				{ dayOfWeek: 1, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '18:00' },
+				{ dayOfWeek: 2, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '18:00' },
+				{ dayOfWeek: 3, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '18:00' },
+				{ dayOfWeek: 4, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '18:00' },
+				{ dayOfWeek: 5, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 6, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+				{ dayOfWeek: 0, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+			],
+		},
+	},
+	{
+		label: '5x2 Padrão 40h (8h/dia)',
+		prompt: 'Jornada 5x2 de segunda a sexta das 08:00 às 17:00 com 1 hora de intervalo.',
+		schedule: {
+			formula: '40h semanais (8h/dia)',
+			explanation: 'Jornada 5x2: 8h diárias de segunda a sexta-feira, totalizando 40h semanais.',
+			weeklyTargetHours: 40,
+			dailyTargetHours: 8,
+			rules: [
+				{ dayOfWeek: 1, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 2, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 3, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 4, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 5, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+				{ dayOfWeek: 6, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+				{ dayOfWeek: 0, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+			],
+		},
+	},
+	{
+		label: '12x36 Plantonista (Hospital/Segurança)',
+		prompt: 'Escala 12x36 das 07:00 às 19:00 com intervalo de 15 minutos.',
+		schedule: {
+			formula: 'Escala 12x36 (07:00 às 19:00)',
+			explanation: 'Escala 12x36: turno de 12 horas das 07:00 às 19:00 com 15 minutos de intervalo e 36 horas de descanso.',
+			weeklyTargetHours: 42,
+			dailyTargetHours: 11.75,
+			rules: [
+				{ dayOfWeek: 1, dayType: 'work', startTime: '07:00', breakStartTime: '12:00', breakEndTime: '12:15', endTime: '19:00' },
+				{ dayOfWeek: 2, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+				{ dayOfWeek: 3, dayType: 'work', startTime: '07:00', breakStartTime: '12:00', breakEndTime: '12:15', endTime: '19:00' },
+				{ dayOfWeek: 4, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+				{ dayOfWeek: 5, dayType: 'work', startTime: '07:00', breakStartTime: '12:00', breakEndTime: '12:15', endTime: '19:00' },
+				{ dayOfWeek: 6, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+				{ dayOfWeek: 0, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+			],
+		},
 	},
 ];
 
@@ -93,9 +197,6 @@ export function AiPromptCard({
 							</CardDescription>
 						</div>
 					</div>
-					<Badge variant="secondary" className="text-[11px] font-mono tracking-tight hidden sm:inline-flex bg-primary/10 text-primary border border-primary/20">
-            Gemini 3.5 Flash-Lite (Mais Barato)
-					</Badge>
 				</div>
 			</CardHeader>
 
@@ -104,7 +205,7 @@ export function AiPromptCard({
 					<Input
 						value={prompt}
 						onChange={(e) => setPrompt(e.target.value)}
-						placeholder="Ex: Trabalho na escala 6x1 das 08:00 às 16:20 de seg a sáb com 1h de almoço..."
+						placeholder="Ex: Trabalho de seg a sex das 08:00 às 17:00 e sáb das 08:00 às 12:00..."
 						className="flex-1 text-sm bg-background/80"
 						onKeyDown={(e) => {
 							if (e.key === 'Enter') handleGenerate();
@@ -137,8 +238,9 @@ export function AiPromptCard({
 							key={idx}
 							type="button"
 							onClick={() => {
-								setPrompt(p.prompt);
-								handleGenerate(p.prompt);
+								setError(null);
+								setLastResult(null);
+								onApplyRules(p.schedule);
 							}}
 							className="text-xs px-2.5 py-1 rounded-full border border-border bg-background hover:bg-accent hover:text-accent-foreground transition-colors"
 						>
@@ -176,9 +278,6 @@ export function AiPromptCard({
 									<span className="font-semibold text-emerald-800 dark:text-emerald-300">
                     Fórmula Gerada: {lastResult.formula}
 									</span>
-									<Badge variant="outline" className="text-[10px] py-0 border-emerald-500/40 text-emerald-700 dark:text-emerald-300">
-										{lastResult.weeklyTargetHours}h semanais
-									</Badge>
 								</div>
 								<p className="text-muted-foreground">{lastResult.explanation}</p>
 							</div>

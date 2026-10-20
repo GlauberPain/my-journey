@@ -16,6 +16,7 @@ export interface ScheduleDay extends ShiftTime {
   isHoliday?: boolean;
   holidayName?: string;
   workedOnHoliday?: boolean; // Sinalizado pelo usuário que irá trabalhar no feriado
+  expectedMinutes?: number;  // Meta esperada para este dia específico (ex: 480m para Seg-Sex, 240m para Sábado na escala 6x1)
 }
 
 export interface DayCalculation {

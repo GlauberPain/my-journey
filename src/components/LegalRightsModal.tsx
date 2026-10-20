@@ -13,6 +13,7 @@ import {
 	CheckCircle2,
 	FileText,
 	CalendarCheck,
+	AlertOctagon,
 } from 'lucide-react';
 
 interface LegalRightsModalProps {
@@ -47,36 +48,58 @@ export function LegalRightsModal({ open, onOpenChange, analysis }: LegalRightsMo
 					{/* Badges de Resumo */}
 					<div className="flex flex-wrap items-center gap-2">
 						<Badge
-							variant={analysis.isScale6x1 ? 'destructive' : 'secondary'}
+							variant={analysis.isActiveViolation || analysis.isScale6x1 ? 'destructive' : 'secondary'}
 							className="text-xs font-semibold py-1 px-2.5"
 						>
-							{analysis.isScale6x1 ? '⚠️ Escala 6x1 Detectada' : `Escala ${analysis.scaleType.toUpperCase()}`}
+							{analysis.isActiveViolation
+								? (analysis.isScale6x1 ? '🚨 Escala 6x1 Ilegal no Mês' : `🚨 Carga ${analysis.weeklyWorkedHours}h Excede Teto Legal`)
+								: analysis.isScale6x1
+									? '⚠️ Escala 6x1 Detectada'
+									: `Escala ${analysis.scaleType.toUpperCase()}`}
 						</Badge>
 
 						<Badge variant="outline" className="text-xs py-1 px-2.5 font-mono">
 							{analysis.weeklyWorkedHours}h semanais ({analysis.workDaysPerWeek} dias de trabalho / {analysis.offDaysPerWeek} de descanso)
 						</Badge>
 
-						{analysis.exceeds44Hours ? (
-							<Badge variant="destructive" className="text-xs py-1 px-2.5">
-                Excede o Limite Máximo da CLT (44h)
+						{analysis.referenceMonthYear && (
+							<Badge variant="outline" className="text-xs py-1 px-2.5">
+								Mês em Análise: {analysis.referenceMonthYear}
 							</Badge>
-						) : analysis.isScale6x1 ? (
+						)}
+
+						{analysis.isActiveViolation ? (
+							<Badge variant="destructive" className="text-xs py-1 px-2.5 font-bold animate-pulse">
+								🚨 Violação da Legislação Vigente
+							</Badge>
+						) : analysis.exceeds44Hours ? (
+							<Badge variant="destructive" className="text-xs py-1 px-2.5">
+								Excede o Limite Máximo da CLT (44h)
+							</Badge>
+						) : analysis.isScale6x1 || analysis.weeklyWorkedHours >= 44 ? (
 							<Badge className="bg-amber-500/15 text-amber-700 dark:text-amber-400 border border-amber-500/30 text-xs py-1 px-2.5">
-                Alvo de Redução Obrigatória
+								Alvo de Redução Obrigatória
 							</Badge>
 						) : (
 							<Badge variant="success" className="text-xs py-1 px-2.5">
-                Em Conformidade Legal
+								Em Conformidade Legal
 							</Badge>
 						)}
 					</div>
 
 					{/* 1. Você tem direito à redução de carga horária? */}
-					<div className="p-3.5 rounded-xl border border-border bg-card/60 space-y-2">
+					<div className={`p-3.5 rounded-xl border space-y-2 ${
+						analysis.isActiveViolation
+							? 'border-rose-500/30 bg-rose-500/5'
+							: 'border-border bg-card/60'
+					}`}>
 						<div className="flex items-center gap-2 text-sm font-bold text-foreground">
-							<Clock className="h-4 w-4 text-primary shrink-0" />
-							<span>Você tem direito à redução de carga horária?</span>
+							{analysis.isActiveViolation ? (
+								<AlertOctagon className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0 animate-pulse" />
+							) : (
+								<Clock className="h-4 w-4 text-primary shrink-0" />
+							)}
+							<span>{analysis.isActiveViolation ? 'Violação da Jornada Legal & Direito à Redução' : 'Você tem direito à redução de carga horária?'}</span>
 						</div>
 						<p className="text-muted-foreground leading-relaxed">
 							{analysis.reductionReason}
@@ -84,20 +107,49 @@ export function LegalRightsModal({ open, onOpenChange, analysis }: LegalRightsMo
 					</div>
 
 					{/* 2. A partir de que dia você deve conseguir essa redução ou compensação? */}
-					<div className="p-3.5 rounded-xl border border-border bg-card/60 space-y-2">
+					<div className={`p-3.5 rounded-xl border space-y-2 ${
+						analysis.isActiveViolation
+							? 'border-rose-500/30 bg-rose-500/5'
+							: 'border-border bg-card/60'
+					}`}>
 						<div className="flex items-center gap-2 text-sm font-bold text-foreground">
-							<Calendar className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
-							<span>A partir de que dia você tem esse direito?</span>
+							{analysis.isActiveViolation ? (
+								<AlertOctagon className="h-4 w-4 text-rose-600 dark:text-rose-400 shrink-0" />
+							) : analysis.isScale6x1 || analysis.exceedsEffectiveLimit ? (
+								<Calendar className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0" />
+							) : (
+								<CheckCircle2 className="h-4 w-4 text-emerald-600 dark:text-emerald-400 shrink-0" />
+							)}
+							<span>{analysis.isActiveViolation ? 'Situação no Mês Selecionado (Direito Imediato)' : (analysis.isScale6x1 || analysis.exceedsEffectiveLimit ? 'A partir de que dia você tem esse direito?' : 'Situação da sua jornada')}</span>
 						</div>
-						<div className="p-2.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+						<div
+							className={`p-3 rounded-lg border font-medium leading-relaxed ${
+								analysis.isActiveViolation
+									? 'bg-rose-500/15 border-rose-500/30 text-rose-950 dark:text-rose-100'
+									: analysis.isScale6x1 || analysis.weeklyWorkedHours >= 44 || analysis.exceedsEffectiveLimit
+										? 'bg-amber-500/10 border-amber-500/20 text-amber-900 dark:text-amber-200'
+										: 'bg-emerald-500/10 border-emerald-500/20 text-emerald-900 dark:text-emerald-200'
+							}`}
+						>
 							{analysis.effectiveDateInfo}
 						</div>
-						{analysis.isScale6x1 && (
-							<p className="text-muted-foreground leading-relaxed pt-1">
-                Com o fim da escala 6x1 aprovado no Congresso Nacional, a lei impõe que todo trabalhador
-                tenha garantido no mínimo <strong>dois dias de descanso semanal</strong> sem que seu salário seja reduzido.
-                Empresas que insistirem na escala 6x1 devem arcar com pagamento extraordinário ou compensação obrigatória.
-							</p>
+						{(analysis.isScale6x1 || analysis.weeklyWorkedHours >= 44) && (
+							<div className="p-3 rounded-lg bg-muted/50 border border-border text-muted-foreground leading-relaxed space-y-1">
+								<p className="font-semibold text-foreground">
+									📅 Cronograma de Transição e Redução de Carga Horária:
+								</p>
+								<ul className="list-disc list-inside space-y-1.5 text-[11px]">
+									<li>
+										<strong>16 de dezembro de 2026 (60 dias após a promulgação):</strong> A jornada máxima permitida cai de 44 para <strong>42 horas semanais</strong>, e passa a ser obrigatório o direito a dois dias de descanso remunerado na semana (preferencialmente aos domingos, escala <strong>5x2</strong>), sem redução salarial.
+									</li>
+									<li>
+										<strong>16 de dezembro de 2027 (1 ano após a 1ª etapa):</strong> A jornada semanal atinge o limite definitivo de <strong>40 horas semanais</strong>.
+									</li>
+									<li className="list-none text-[10.5px] italic text-muted-foreground/90 pt-1">
+										💡 O fim da escala 6x1 não se resume a dias de descanso, mas à redução mandatória da jornada semanal sem perda salarial. Durante o 1º ano de transição (dez/2026 a dez/2027), acordos e convenções coletivas podem organizar a redistribuição diária de horários para acomodar as 42h mantendo as 2 folgas semanais.
+									</li>
+								</ul>
+							</div>
 						)}
 					</div>
 
@@ -118,7 +170,10 @@ export function LegalRightsModal({ open, onOpenChange, analysis }: LegalRightsMo
 								</li>
 								{analysis.hasInsufficientInterval && (
 									<li className="text-rose-600 dark:text-rose-400 font-medium">
-										<strong>Almoço violado:</strong> tempo suprimido deve ser indenizado com <strong>50% de adicional</strong> (Art. 71 CLT).
+										<strong>{analysis.scaleType === '12x36' ? 'Plantão direto (sem 1h de almoço):' : 'Almoço violado:'}</strong>{' '}
+										{analysis.scaleType === '12x36'
+											? 'em plantão 12x36 contínuo com pausas curtas de 15min para lanche, se não houver 1h para refeição externa, o período deve ser indenizado com 50% de adicional (Art. 59-A e Art. 71 CLT).'
+											: 'tempo suprimido deve ser indenizado com 50% de adicional (Art. 71 CLT).'}
 									</li>
 								)}
 							</ul>

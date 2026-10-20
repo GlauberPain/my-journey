@@ -9,19 +9,20 @@ import {
 	calculateSalaryCompensation,
 	calculateWeeklySchedule,
 } from './legalTransition.ts';
+import { analyzeWorkScheduleLegislation } from './legalAnalysis.ts';
 import type { ScheduleDay, EmployeeContract } from './types.ts';
 
 describe('Nova Emenda Constitucional da Jornada de Trabalho (PEC 221/2019)', () => {
-	// Marcos esperados com base na data de promulgação de referência (15/10/2026):
-	// Fase 1 (+60 dias): 2026-12-14 (limite de 42h, divisor 210)
-	// Fase 2 (+12 meses após Fase 1): 2027-12-14 (limite de 40h, divisor 200)
+	// Marcos esperados com base na data de promulgação de referência (17/10/2026):
+	// Fase 1 (+60 dias): 2026-12-16 (limite de 42h, divisor 210, transição 6x1 para 5x2)
+	// Fase 2 (+12 meses após Fase 1): 2027-12-16 (limite de 40h, divisor 200)
 
 	describe('1. Versionamento e Vigência Baseada em Datas (Date-based thresholds)', () => {
 		it('deve calcular corretamente as datas de corte das Fases 1 e 2', () => {
-			const milestones = getTransitionMilestones('2026-10-15');
-			assert.strictEqual(milestones.promulgationDate, '2026-10-15');
-			assert.strictEqual(milestones.phase1EffectiveDate, '2026-12-14');
-			assert.strictEqual(milestones.phase2EffectiveDate, '2027-12-14');
+			const milestones = getTransitionMilestones('2026-10-17');
+			assert.strictEqual(milestones.promulgationDate, '2026-10-17');
+			assert.strictEqual(milestones.phase1EffectiveDate, '2026-12-16');
+			assert.strictEqual(milestones.phase2EffectiveDate, '2027-12-16');
 		});
 
 		it('deve identificar a Fase Legada (44h) antes da vigência da Fase 1', () => {
@@ -211,6 +212,112 @@ describe('Nova Emenda Constitucional da Jornada de Trabalho (PEC 221/2019)', () 
 			assert.strictEqual(summary.workedMinutes, 38 * 60);
 			assert.strictEqual(summary.overtimeMinutes, 2 * 60, 'Gera 2h extras em relação ao teto contratual de 36h');
 			assert.strictEqual(summary.formattedOvertime, '02:00');
+		});
+
+		it('Cenário D: Escala 6x1 tradicional (Seg-Sex 8h + Sáb 4h) sem trabalho à tarde no sábado', () => {
+			// Seg-Sex: 8h líquidas por dia (5 * 8h = 40h)
+			// Sábado: 4h líquidas pela manhã (08:00 às 12:00, sem trabalho à tarde)
+			// Total da semana: 44h líquidas
+			// Meta semanal legal: 44h. Saldo da semana deve ser EXATAMENTE 00:00!
+			const weekDays: ScheduleDay[] = [
+				createWorkDay('2026-11-09', '08:00', '17:00'), // Seg: 8h (1h almoço)
+				createWorkDay('2026-11-10', '08:00', '17:00'), // Ter: 8h (1h almoço)
+				createWorkDay('2026-11-11', '08:00', '17:00'), // Qua: 8h (1h almoço)
+				createWorkDay('2026-11-12', '08:00', '17:00'), // Qui: 8h (1h almoço)
+				createWorkDay('2026-11-13', '08:00', '17:00'), // Sex: 8h (1h almoço)
+				{
+					date: '2026-11-14',
+					dayOfWeek: 6, // Sábado
+					dayType: 'work',
+					startTime: '08:00',
+					breakStartTime: '',
+					breakEndTime: '',
+					endTime: '12:00', // 4h líquidas
+				},
+				{
+					date: '2026-11-15',
+					dayOfWeek: 0, // Domingo
+					dayType: 'off',
+					startTime: '',
+					breakStartTime: '',
+					breakEndTime: '',
+					endTime: '',
+				},
+			];
+
+			const summary = calculateWeeklySchedule(weekDays, '2026-11-09');
+
+			assert.strictEqual(summary.workedMinutes, 44 * 60, 'Total semanal trabalhado deve ser de exatamente 44 horas');
+			assert.strictEqual(summary.effectiveWeeklyLimitHours, 44);
+			assert.strictEqual(summary.overtimeMinutes, 0, 'Não deve gerar horas extras');
+			assert.strictEqual(summary.deficitMinutes, 0, 'Não deve gerar déficit');
+			assert.strictEqual(summary.formattedBalance, '00:00', 'Saldo semanal deve estar rigorosamente equilibrado em 00:00');
+		});
+	});
+
+	describe('5. Diagnóstico Legal e Alarme Enfático por Mês (Dezembro/2026 vs Janeiro/2027)', () => {
+		const sampleDays44h: ScheduleDay[] = [
+			{ date: '2026-12-01', dayOfWeek: 1, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+			{ date: '2026-12-02', dayOfWeek: 2, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+			{ date: '2026-12-03', dayOfWeek: 3, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+			{ date: '2026-12-04', dayOfWeek: 4, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+			{ date: '2026-12-05', dayOfWeek: 5, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:48' },
+			{ date: '2026-12-06', dayOfWeek: 6, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+			{ date: '2026-12-07', dayOfWeek: 0, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+		];
+
+		const sampleDays6x1: ScheduleDay[] = [
+			{ date: '2026-12-01', dayOfWeek: 1, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+			{ date: '2026-12-02', dayOfWeek: 2, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+			{ date: '2026-12-03', dayOfWeek: 3, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+			{ date: '2026-12-04', dayOfWeek: 4, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+			{ date: '2026-12-05', dayOfWeek: 5, dayType: 'work', startTime: '08:00', breakStartTime: '12:00', breakEndTime: '13:00', endTime: '17:00' },
+			{ date: '2026-12-06', dayOfWeek: 6, dayType: 'work', startTime: '08:00', breakStartTime: '', breakEndTime: '', endTime: '12:00' },
+			{ date: '2026-12-07', dayOfWeek: 0, dayType: 'off', startTime: '', breakStartTime: '', breakEndTime: '', endTime: '' },
+		];
+
+		it('deve sinalizar AVISO PREVENTIVO (não alarme ativo) para jornada de 44h em Dezembro de 2026', () => {
+			const result = analyzeWorkScheduleLegislation(sampleDays44h, null, undefined, '2026-12-01');
+
+			assert.strictEqual(result.currentPhase, 'LEGACY_44H');
+			assert.strictEqual(result.effectiveLimitHours, 44);
+			assert.strictEqual(result.weeklyWorkedHours, 44);
+			assert.strictEqual(result.isActiveViolation, false, 'Em dez/2026, 44h é legal na fase legada');
+			assert.strictEqual(result.violationSeverity, 'WARNING_UPCOMING');
+			assert.strictEqual(result.referenceMonthYear, 'Dezembro de 2026');
+			assert.match(result.reductionReason, /Sua jornada semanal atual é de 44h/);
+		});
+
+		it('deve disparar ALARME CRÍTICO para jornada de 44h a partir de Janeiro de 2027', () => {
+			const result = analyzeWorkScheduleLegislation(sampleDays44h, null, undefined, '2027-01-01');
+
+			assert.strictEqual(result.currentPhase, 'PHASE_1_42H');
+			assert.strictEqual(result.effectiveLimitHours, 42);
+			assert.strictEqual(result.weeklyWorkedHours, 44);
+			assert.strictEqual(result.isActiveViolation, true, 'A partir de jan/2027, 44h é violação ativa (teto 42h)');
+			assert.strictEqual(result.violationSeverity, 'CRITICAL_ALARM');
+			assert.strictEqual(result.referenceMonthYear, 'Janeiro de 2027');
+			assert.match(result.reductionReason, /🚨 ALARME/);
+			assert.match(result.reductionReason, /42h semanais/);
+		});
+
+		it('deve sinalizar AVISO PREVENTIVO para escala 6x1 em Dezembro de 2026', () => {
+			const result = analyzeWorkScheduleLegislation(sampleDays6x1, null, undefined, '2026-12-01');
+
+			assert.strictEqual(result.isScale6x1, true);
+			assert.strictEqual(result.isActiveViolation, false, 'Em dez/2026, 6x1 ainda é regular na fase legada');
+			assert.strictEqual(result.violationSeverity, 'WARNING_UPCOMING');
+			assert.match(result.reductionReason, /A partir de 16 de dezembro de 2026, a escala 6x1 será reduzida/);
+		});
+
+		it('deve disparar ALARME CRÍTICO para escala 6x1 a partir de Janeiro de 2027', () => {
+			const result = analyzeWorkScheduleLegislation(sampleDays6x1, null, undefined, '2027-01-01');
+
+			assert.strictEqual(result.isScale6x1, true);
+			assert.strictEqual(result.isActiveViolation, true, 'Em jan/2027, 6x1 é proibida e inconstitucional');
+			assert.strictEqual(result.violationSeverity, 'CRITICAL_ALARM');
+			assert.match(result.reductionReason, /🚨 ALARME/);
+			assert.match(result.reductionReason, /escala 6x1 é ilegal/);
 		});
 	});
 });

@@ -3,7 +3,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { ScheduleDay, DayType } from '@/lib/types';
-import { calculateDay } from '@/lib/calculator';
+import {
+	calculateDay,
+	minutesToTime,
+	calculateShiftWorkedMinutes,
+	getDayExpectedMinutes,
+} from '@/lib/calculator';
 import { Table as TableIcon, Copy, Check } from 'lucide-react';
 
 interface ScheduleTableProps {
@@ -22,6 +27,25 @@ export function ScheduleTable({
 	onApplyTimeToAllWorkdays,
 }: ScheduleTableProps) {
 	const [copiedDate, setCopiedDate] = React.useState<string | null>(null);
+
+	// Agrupamento semanal (fecha no Domingo ou no último dia do mês) para apuração de saldo semanal (Art. 7º, XIII CF)
+	const weeks: ScheduleDay[][] = React.useMemo(() => {
+		const result: ScheduleDay[][] = [];
+		let currentWeek: ScheduleDay[] = [];
+
+		days.forEach((day, idx) => {
+			currentWeek.push(day);
+			const isSunday = day.dayOfWeek === 0;
+			const isLast = idx === days.length - 1;
+
+			if (isSunday || isLast) {
+				result.push(currentWeek);
+				currentWeek = [];
+			}
+		});
+
+		return result;
+	}, [days]);
 
 	const handleCopy = (day: ScheduleDay) => {
 		onApplyTimeToAllWorkdays(day);
@@ -73,174 +97,235 @@ export function ScheduleTable({
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-border/60">
-							{days.map((day) => {
-								const calc = calculateDay(day, dailyExpectedMinutes);
-								const isHoliday = day.isHoliday || day.dayType === 'holiday';
-								const isWork = day.dayType === 'work' || (isHoliday && day.workedOnHoliday);
-								const isWeekend = day.dayOfWeek === 0 || day.dayOfWeek === 6;
+							{weeks.map((weekDays, weekIdx) => {
+								// Cálculos consolidados da semana (Art. 7º, XIII da CF/88)
+								let weekWorked = 0;
+								let weekExpected = 0;
+
+								weekDays.forEach((d) => {
+									const isHoliday = d.isHoliday || d.dayType === 'holiday';
+									if (isHoliday && d.workedOnHoliday) {
+										const { workedMinutes } = calculateShiftWorkedMinutes(d);
+										weekWorked += workedMinutes;
+									} else if (d.dayType === 'work' && (d.startTime || d.endTime)) {
+										const { workedMinutes } = calculateShiftWorkedMinutes(d);
+										weekWorked += workedMinutes;
+										weekExpected += getDayExpectedMinutes(d, dailyExpectedMinutes);
+									}
+								});
+
+								const weekBalance = weekWorked - weekExpected;
+								const firstDayStr = weekDays[0].date.split('-').reverse().slice(0, 2).join('/');
+								const lastDayStr = weekDays[weekDays.length - 1].date.split('-').reverse().slice(0, 2).join('/');
 
 								return (
-									<tr
-										key={day.date}
-										className={`transition-colors hover:bg-muted/20 ${
-											isHoliday
-												? day.workedOnHoliday
-													? 'bg-emerald-500/5'
-													: 'bg-amber-500/5'
-												: !isWork
-													? 'bg-muted/10 opacity-75'
-													: ''
-										}`}
-									>
-										{/* Data formatada DD/MM */}
-										<td className="py-2 px-3 font-medium font-mono text-foreground">
-											{day.date.split('-').reverse().slice(0, 2).join('/')}
-										</td>
+									<React.Fragment key={`week-${weekIdx}`}>
+										{weekDays.map((day) => {
+											const calc = calculateDay(day, dailyExpectedMinutes);
+											const isHoliday = day.isHoliday || day.dayType === 'holiday';
+											const isWork = day.dayType === 'work' || (isHoliday && day.workedOnHoliday);
+											const isWeekend = day.dayOfWeek === 0 || day.dayOfWeek === 6;
 
-										{/* Dia da semana */}
-										<td className={`py-2 px-3 font-medium ${isWeekend ? 'text-rose-500 font-bold' : ''}`}>
-											{DAY_NAMES[day.dayOfWeek]}
-										</td>
-
-										{/* Situação / Feriado */}
-										<td className="py-2 px-3">
-											{isHoliday ? (
-												<div className="space-y-1">
-													<span
-														className="inline-block text-[10px] font-bold text-amber-700 dark:text-amber-400 truncate max-w-[150px]"
-														title={day.holidayName}
-													>
-                            🎉 {day.holidayName || 'Feriado'}
-													</span>
-													<div>
-														<button
-															type="button"
-															onClick={() => handleToggleHolidayWork(day)}
-															className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors border ${
-																day.workedOnHoliday
-																	? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
-																	: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
-															}`}
-														>
-															{day.workedOnHoliday ? '✓ Trabalhando (100% Extra)' : '+ Trabalhar no Feriado'}
-														</button>
-													</div>
-												</div>
-											) : (
-												<select
-													value={day.dayType}
-													onChange={(e) =>
-														onUpdateDay(day.date, { dayType: e.target.value as DayType })
-													}
-													className="text-xs bg-background border border-input rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring font-medium"
-												>
-													<option value="work">Trabalho</option>
-													<option value="off">Folga</option>
-													<option value="dsr">DSR</option>
-													<option value="holiday">Feriado</option>
-													<option value="leave">Atestado</option>
-												</select>
-											)}
-										</td>
-
-										{/* Hora Início */}
-										<td className="py-2 px-3">
-											<Input
-												type="time"
-												value={day.startTime}
-												disabled={!isWork}
-												onChange={(e) => onUpdateDay(day.date, { startTime: e.target.value })}
-												className="h-8 text-xs font-mono disabled:opacity-30 disabled:bg-transparent"
-											/>
-										</td>
-
-										{/* Intervalo Início */}
-										<td className="py-2 px-3">
-											<Input
-												type="time"
-												value={day.breakStartTime}
-												disabled={!isWork}
-												onChange={(e) => onUpdateDay(day.date, { breakStartTime: e.target.value })}
-												className="h-8 text-xs font-mono disabled:opacity-30 disabled:bg-transparent"
-											/>
-										</td>
-
-										{/* Intervalo Fim */}
-										<td className="py-2 px-3">
-											<Input
-												type="time"
-												value={day.breakEndTime}
-												disabled={!isWork}
-												onChange={(e) => onUpdateDay(day.date, { breakEndTime: e.target.value })}
-												className="h-8 text-xs font-mono disabled:opacity-30 disabled:bg-transparent"
-											/>
-										</td>
-
-										{/* Hora Fim */}
-										<td className="py-2 px-3">
-											<Input
-												type="time"
-												value={day.endTime}
-												disabled={!isWork}
-												onChange={(e) => onUpdateDay(day.date, { endTime: e.target.value })}
-												className="h-8 text-xs font-mono disabled:opacity-30 disabled:bg-transparent"
-											/>
-										</td>
-
-										{/* Total Horas Líquidas */}
-										<td className="py-2 px-3 text-center font-mono font-semibold text-foreground">
-											{isWork && (day.startTime || day.endTime) ? calc.formattedWorked : '--:--'}
-										</td>
-
-										{/* Saldo Diário */}
-										<td className="py-2 px-3 text-center font-mono">
-											{isHoliday && day.workedOnHoliday && (day.startTime || day.endTime) ? (
-												<Badge variant="success" className="text-[10px] py-0 px-1 font-bold">
-													{calc.formattedBalance} (100%)
-												</Badge>
-											) : isWork && (day.startTime || day.endTime) ? (
-												<span
-													className={`font-semibold ${
-														calc.isOvertime
-															? 'text-emerald-600 dark:text-emerald-400'
-															: calc.isDeficit
-																? 'text-rose-600 dark:text-rose-400'
-																: 'text-muted-foreground'
+											return (
+												<tr
+													key={day.date}
+													className={`transition-colors hover:bg-muted/20 ${
+														isHoliday
+															? day.workedOnHoliday
+																? 'bg-emerald-500/5'
+																: 'bg-amber-500/5'
+															: !isWork
+																? 'bg-muted/10 opacity-75'
+																: ''
 													}`}
 												>
-													{calc.formattedBalance}
-												</span>
-											) : isHoliday ? (
-												<span className="text-[10px] text-amber-700 dark:text-amber-400 italic">Folga Feriado</span>
-											) : (
-												<span className="text-muted-foreground/40">-</span>
-											)}
-										</td>
+													{/* Data formatada DD/MM */}
+													<td className="py-2 px-3 font-medium font-mono text-foreground">
+														{day.date.split('-').reverse().slice(0, 2).join('/')}
+													</td>
 
-										{/* Ações */}
-										<td className="py-2 px-3 text-right">
-											{isWork && !isHoliday && (
-												<button
-													type="button"
-													onClick={() => handleCopy(day)}
-													title="Replicar este horário para todos os dias de trabalho"
-													className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded border border-transparent hover:border-border transition-colors"
-												>
-													{copiedDate === day.date ? (
-														<>
-															<Check className="h-3 w-3 text-emerald-500" />
-															<span className="text-emerald-600 dark:text-emerald-400 font-medium">Copiado</span>
-														</>
-													) : (
-														<>
-															<Copy className="h-3 w-3" />
-															<span className="hidden sm:inline">Replicar</span>
-														</>
-													)}
-												</button>
-											)}
-										</td>
-									</tr>
+													{/* Dia da semana */}
+													<td className={`py-2 px-3 font-medium ${isWeekend ? 'text-rose-500 font-bold' : ''}`}>
+														{DAY_NAMES[day.dayOfWeek]}
+													</td>
+
+													{/* Situação / Feriado */}
+													<td className="py-2 px-3">
+														{isHoliday ? (
+															<div className="space-y-1">
+																<span
+																	className="inline-block text-[10px] font-bold text-amber-700 dark:text-amber-400 truncate max-w-[150px]"
+																	title={day.holidayName}
+																>
+                                  🎉 {day.holidayName || 'Feriado'}
+																</span>
+																<div>
+																	<button
+																		type="button"
+																		onClick={() => handleToggleHolidayWork(day)}
+																		className={`text-[10px] px-2 py-0.5 rounded font-medium transition-colors border ${
+																			day.workedOnHoliday
+																				? 'bg-emerald-500/20 text-emerald-800 dark:text-emerald-300 border-emerald-500/40 hover:bg-emerald-500/30'
+																				: 'bg-amber-500/10 text-amber-800 dark:text-amber-300 border-amber-500/30 hover:bg-amber-500/20'
+																		}`}
+																	>
+																		{day.workedOnHoliday ? '✓ Trabalhando (100% Extra)' : '+ Trabalhar no Feriado'}
+																	</button>
+																</div>
+															</div>
+														) : (
+															<select
+																value={day.dayType}
+																onChange={(e) =>
+																	onUpdateDay(day.date, { dayType: e.target.value as DayType })
+																}
+																className="text-xs bg-background border border-input rounded px-2 py-1 focus:outline-none focus:ring-1 focus:ring-ring font-medium"
+															>
+																<option value="work">Trabalho</option>
+																<option value="off">Folga</option>
+																<option value="dsr">DSR</option>
+																<option value="holiday">Feriado</option>
+																<option value="leave">Atestado</option>
+															</select>
+														)}
+													</td>
+
+													{/* Hora Início */}
+													<td className="py-2 px-3">
+														<Input
+															type="time"
+															value={day.startTime}
+															disabled={!isWork}
+															onChange={(e) => onUpdateDay(day.date, { startTime: e.target.value })}
+															className="h-8 text-xs font-mono disabled:opacity-30 disabled:bg-transparent"
+														/>
+													</td>
+
+													{/* Intervalo Início */}
+													<td className="py-2 px-3">
+														<Input
+															type="time"
+															value={day.breakStartTime}
+															disabled={!isWork}
+															onChange={(e) => onUpdateDay(day.date, { breakStartTime: e.target.value })}
+															className="h-8 text-xs font-mono disabled:opacity-30 disabled:bg-transparent"
+														/>
+													</td>
+
+													{/* Intervalo Fim */}
+													<td className="py-2 px-3">
+														<Input
+															type="time"
+															value={day.breakEndTime}
+															disabled={!isWork}
+															onChange={(e) => onUpdateDay(day.date, { breakEndTime: e.target.value })}
+															className="h-8 text-xs font-mono disabled:opacity-30 disabled:bg-transparent"
+														/>
+													</td>
+
+													{/* Hora Fim */}
+													<td className="py-2 px-3">
+														<Input
+															type="time"
+															value={day.endTime}
+															disabled={!isWork}
+															onChange={(e) => onUpdateDay(day.date, { endTime: e.target.value })}
+															className="h-8 text-xs font-mono disabled:opacity-30 disabled:bg-transparent"
+														/>
+													</td>
+
+													{/* Total Horas Líquidas */}
+													<td className="py-2 px-3 text-center font-mono font-semibold text-foreground">
+														{isWork && (day.startTime || day.endTime) ? calc.formattedWorked : '--:--'}
+													</td>
+
+													{/* Saldo Diário */}
+													<td className="py-2 px-3 text-center font-mono">
+														{isHoliday && day.workedOnHoliday && (day.startTime || day.endTime) ? (
+															<Badge variant="success" className="text-[10px] py-0 px-1 font-bold">
+																{calc.formattedBalance} (100%)
+															</Badge>
+														) : isWork && (day.startTime || day.endTime) ? (
+															<span
+																className={`font-semibold ${
+																	calc.isOvertime
+																		? 'text-emerald-600 dark:text-emerald-400'
+																		: calc.isDeficit
+																			? 'text-rose-600 dark:text-rose-400'
+																			: 'text-muted-foreground'
+																}`}
+															>
+																{calc.formattedBalance}
+															</span>
+														) : isHoliday ? (
+															<span className="text-[10px] text-amber-700 dark:text-amber-400 italic">Folga Feriado</span>
+														) : (
+															<span className="text-muted-foreground/40">-</span>
+														)}
+													</td>
+
+													{/* Ações */}
+													<td className="py-2 px-3 text-right">
+														{isWork && !isHoliday && (
+															<button
+																type="button"
+																onClick={() => handleCopy(day)}
+																title="Replicar este horário para todos os dias de trabalho"
+																className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground px-2 py-1 rounded border border-transparent hover:border-border transition-colors"
+															>
+																{copiedDate === day.date ? (
+																	<>
+																		<Check className="h-3 w-3 text-emerald-500" />
+																		<span className="text-emerald-600 dark:text-emerald-400 font-medium">Copiado</span>
+																	</>
+																) : (
+																	<>
+																		<Copy className="h-3 w-3" />
+																		<span className="hidden sm:inline">Replicar</span>
+																	</>
+																)}
+															</button>
+														)}
+													</td>
+												</tr>
+											);
+										})}
+
+										{/* Linha de Subtotal / Fechamento Semanal da Semana (Art. 7º, XIII CF/88) */}
+										<tr className="bg-muted/40 hover:bg-muted/50 border-y-2 border-border/80 transition-colors text-xs">
+											<td colSpan={6} className="py-2.5 px-3">
+												<div className="flex flex-wrap items-center justify-between gap-2">
+													<span className="font-bold text-foreground flex items-center gap-1.5">
+														<span className="h-2 w-2 rounded-full bg-primary/70 inline-block" />
+														<span>Fechamento da Semana {weekIdx + 1}</span>
+														<span className="text-[11px] font-normal text-muted-foreground">({firstDayStr} a {lastDayStr})</span>
+													</span>
+													<div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+														<span>Realizado: <strong className="font-mono text-foreground font-semibold">{minutesToTime(weekWorked)}</strong></span>
+														<span>•</span>
+														<span>Meta Semanal: <span className="font-mono font-medium">{minutesToTime(weekExpected)}</span></span>
+													</div>
+												</div>
+											</td>
+											<td className="py-2.5 px-3 text-center font-mono">
+												<div className="flex flex-col items-center">
+													<span
+														className={`font-bold ${
+															weekBalance > 0
+																? 'text-emerald-600 dark:text-emerald-400'
+																: weekBalance < 0
+																	? 'text-rose-600 dark:text-rose-400'
+																	: 'text-muted-foreground'
+														}`}
+													>
+														{minutesToTime(weekBalance, true)}
+													</span>
+													<span className="text-[9px] text-muted-foreground uppercase font-sans tracking-tight">Saldo Semanal</span>
+												</div>
+											</td>
+											<td className="py-2.5 px-3"></td>
+										</tr>
+									</React.Fragment>
 								);
 							})}
 						</tbody>

@@ -1,13 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import {
 	Key,
 	ShieldCheck,
-	Info,
 	Clock,
 	RotateCcw,
 	Trash2,
@@ -54,11 +53,23 @@ export function SettingsModal({
 }: SettingsModalProps) {
 	const [activeTab, setActiveTab] = useState<'general' | 'ai' | 'data'>('general');
 	const [apiKeyInput, setApiKeyInput] = useState(customApiKey);
+	const [hasServerKey, setHasServerKey] = useState(false);
 	const [hoursInput, setHoursInput] = useState(
 		`${String(Math.floor(dailyExpectedMinutes / 60)).padStart(2, '0')}:${String(
 			dailyExpectedMinutes % 60
 		).padStart(2, '0')}`
 	);
+
+	useEffect(() => {
+		fetch('/api/generate-schedule')
+			.then((res) => res.json())
+			.then((data) => {
+				if (data?.hasServerKey) {
+					setHasServerKey(true);
+				}
+			})
+			.catch(() => {});
+	}, []);
 
 	const handleSave = () => {
 		onSaveCustomApiKey(apiKeyInput.trim());
@@ -217,30 +228,20 @@ export function SettingsModal({
 									<Key className="h-4 w-4 text-primary" />
 									<span>Chave da Google Gemini API</span>
 								</label>
-								<span className="text-[10px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-									<ShieldCheck className="h-3 w-3" /> Protegido
-								</span>
+								{hasServerKey && (
+									<span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+										<ShieldCheck className="h-3.5 w-3.5" /> Configurada no .env.local
+									</span>
+								)}
 							</div>
 
 							<Input
 								type="password"
-								placeholder="AIzaSy... (ou deixe vazio se configurou no .env.local)"
+								placeholder={hasServerKey ? '' : 'Chave da API Gemini (opcional)'}
 								value={apiKeyInput}
 								onChange={(e) => setApiKeyInput(e.target.value)}
 								className="text-sm font-mono"
 							/>
-
-							<div className="p-3 rounded-xl bg-muted/40 border border-border text-[11px] text-muted-foreground space-y-1.5 leading-relaxed">
-								<p className="flex items-start gap-1.5">
-									<Info className="h-4 w-4 shrink-0 mt-0.5 text-primary" />
-									<span>
-										<strong>Segurança de Servidor:</strong> A sua chave nunca é exposta no navegador (F12). O backend do Next.js faz a chamada protegida diretamente para o Google Gemini.
-									</span>
-								</p>
-								<p>
-                  O modelo ativo é o <strong>Gemini 3.5 Flash-Lite</strong>, a versão mais rápida e econômica disponível.
-								</p>
-							</div>
 						</div>
 					)}
 

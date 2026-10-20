@@ -7,10 +7,11 @@ import {
 	calculateMonthSummary,
 	applyAiRulesToMonth,
 	exportToCsv,
+	calculateShiftWorkedMinutes,
 } from '@/lib/calculator';
 import { getHolidayName } from '@/lib/holidays';
 import { analyzeWorkScheduleLegislation, LegalAnalysisResult } from '@/lib/legalAnalysis';
-import { Header } from '@/components/Header';
+import { Header, MONTH_NAMES } from '@/components/Header';
 import { SummaryCards } from '@/components/SummaryCards';
 import { AiPromptCard } from '@/components/AiPromptCard';
 import { CalendarView } from '@/components/CalendarView';
@@ -20,7 +21,8 @@ import { DayEditModal } from '@/components/DayEditModal';
 import { LegalRightsModal } from '@/components/LegalRightsModal';
 import { SplashScreen } from '@/components/SplashScreen';
 import { PrintReport } from '@/components/PrintReport';
-import { Calendar as CalendarIcon, Table as TableIcon, LayoutGrid, Scale, Inbox } from 'lucide-react';
+import { Button } from '@/components/ui/button';
+import { Calendar as CalendarIcon, Table as TableIcon, LayoutGrid, Scale, Inbox, AlertOctagon } from 'lucide-react';
 
 export default function Home() {
 	const currentDate = new Date();
@@ -34,7 +36,7 @@ export default function Home() {
 	const [selectedDayForEdit, setSelectedDayForEdit] = useState<ScheduleDay | null>(null);
 	const [isSettingsOpen, setIsSettingsOpen] = useState<boolean>(false);
 	const [isLegalModalOpen, setIsLegalModalOpen] = useState<boolean>(false);
-	const [legalAnalysis, setLegalAnalysis] = useState<LegalAnalysisResult | null>(null);
+	const [activeAiRule, setActiveAiRule] = useState<AiRuleResponse | null>(null);
 	const [viewMode, setViewMode] = useState<'both' | 'calendar' | 'table'>('both');
 
 	// Estados de Tema e Splash Screen
@@ -118,7 +120,6 @@ export default function Home() {
 					};
 				});
 				setDays(enriched);
-				setLegalAnalysis(analyzeWorkScheduleLegislation(enriched));
 				// Libera após carregar tudo com pequena transição suave
 				const timer = setTimeout(() => setIsLoading(false), 500);
 				return () => clearTimeout(timer);
@@ -135,8 +136,8 @@ export default function Home() {
 				const parsedRule: AiRuleResponse = JSON.parse(savedRules);
 				const blankDays = generateMonthDays(year, month);
 				const configured = applyAiRulesToMonth(parsedRule.rules, blankDays);
+				setActiveAiRule(parsedRule);
 				setDays(configured);
-				setLegalAnalysis(analyzeWorkScheduleLegislation(configured, parsedRule));
 				const timer = setTimeout(() => setIsLoading(false), 500);
 				return () => clearTimeout(timer);
 			} catch (e) {
@@ -147,7 +148,7 @@ export default function Home() {
 		// Se NÃO tiver nada salvo no localStorage: mostra 100% LIMPO e VAZIO (sem horários mocados)
 		const emptyDays = generateMonthDays(year, month);
 		setDays(emptyDays);
-		setLegalAnalysis(null);
+		setActiveAiRule(null);
 		const timer = setTimeout(() => setIsLoading(false), 400);
 		return () => clearTimeout(timer);
 	}, [year, month]);
@@ -158,7 +159,48 @@ export default function Home() {
 		if (typeof window !== 'undefined') {
 			const storageKey = `journey_schedule_${year}_${month}`;
 			localStorage.setItem(storageKey, JSON.stringify(newDays));
-			setLegalAnalysis(analyzeWorkScheduleLegislation(newDays));
+
+			// Persiste como regra geral para propagação entre meses caso haja turnos configurados
+			const workDays = newDays.filter((d) => d.dayType === 'work' && d.startTime && d.endTime);
+			if (workDays.length > 0) {
+				const rulesByWeekday: Record<number, ScheduleDay> = {};
+				newDays.forEach((d) => {
+					if (!rulesByWeekday[d.dayOfWeek] && !d.isHoliday) {
+						rulesByWeekday[d.dayOfWeek] = d;
+					}
+				});
+				const rules: AiRuleResponse['rules'] = [];
+				for (let w = 0; w <= 6; w++) {
+					const sample = rulesByWeekday[w];
+					if (sample && sample.dayType === 'work') {
+						rules.push({
+							dayOfWeek: w,
+							dayType: 'work',
+							startTime: sample.startTime || '',
+							breakStartTime: sample.breakStartTime || '',
+							breakEndTime: sample.breakEndTime || '',
+							endTime: sample.endTime || '',
+						});
+					} else {
+						rules.push({
+							dayOfWeek: w,
+							dayType: 'off',
+							startTime: '',
+							breakStartTime: '',
+							breakEndTime: '',
+							endTime: '',
+						});
+					}
+				}
+				const profileRule: AiRuleResponse = {
+					formula: 'Escala Ativa',
+					explanation: 'Escala ativa do trabalhador',
+					weeklyTargetHours: Math.round((workDays.length * (dailyExpectedMinutes / 60)) * 10) / 10,
+					dailyTargetHours: Math.round((dailyExpectedMinutes / 60) * 10) / 10,
+					rules,
+				};
+				localStorage.setItem('journey_profile_rules', JSON.stringify(profileRule));
+			}
 		}
 	};
 
@@ -187,12 +229,21 @@ export default function Home() {
 
 	// Aplicação de regras vindas da IA
 	const handleApplyAiRules = (aiResponse: AiRuleResponse) => {
-		if (aiResponse.dailyTargetHours) {
+		// Calcula a meta diária a partir dos minutos exatos dos turnos gerados, evitando arredondamentos
+		const workRules = aiResponse.rules?.filter((r) => r.dayType === 'work' && r.startTime && r.endTime);
+		if (workRules && workRules.length > 0) {
+			const { workedMinutes } = calculateShiftWorkedMinutes(workRules[0]);
+			if (workedMinutes > 0) {
+				setDailyExpectedMinutes(workedMinutes);
+				localStorage.setItem('daily_target_minutes', String(workedMinutes));
+			}
+		} else if (aiResponse.dailyTargetHours) {
 			const targetMins = Math.round(aiResponse.dailyTargetHours * 60);
 			setDailyExpectedMinutes(targetMins);
 			localStorage.setItem('daily_target_minutes', String(targetMins));
 		}
 
+		setActiveAiRule(aiResponse);
 		const updated = applyAiRulesToMonth(aiResponse.rules, days);
 		persistDays(updated);
 
@@ -201,9 +252,6 @@ export default function Home() {
 			localStorage.setItem('journey_profile_rules', JSON.stringify(aiResponse));
 		}
 
-		// Calcula a análise legal trabalhista (fim do 6x1, horas extras e redução) e abre o modal
-		const analysis = analyzeWorkScheduleLegislation(updated, aiResponse);
-		setLegalAnalysis(analysis);
 		setIsLegalModalOpen(true);
 	};
 
@@ -240,7 +288,7 @@ export default function Home() {
 				localStorage.removeItem(`journey_schedule_${year}_${month}`);
 				localStorage.removeItem('journey_profile_rules');
 			}
-			setLegalAnalysis(null);
+			setActiveAiRule(null);
 		}
 	};
 
@@ -255,7 +303,7 @@ export default function Home() {
 			}
 			const initial = generateMonthDays(year, month);
 			persistDays(initial);
-			setLegalAnalysis(null);
+			setActiveAiRule(null);
 		}
 	};
 
@@ -294,6 +342,11 @@ export default function Home() {
 		}
 	};
 
+	// Data de referência ISO do mês atual (YYYY-MM-01) para verificação temporal da legislação
+	const referenceDate = useMemo(() => {
+		return `${year}-${String(month).padStart(2, '0')}-01`;
+	}, [year, month]);
+
 	// Sumário consolidado do mês
 	const summary: MonthSummary = useMemo(() => {
 		return calculateMonthSummary(days, dailyExpectedMinutes);
@@ -303,6 +356,12 @@ export default function Home() {
 	const hasConfiguredDays = useMemo(() => {
 		return days.some((d) => d.startTime || d.endTime);
 	}, [days]);
+
+	// Análise dinâmica da legislação trabalhista sempre reativa ao mês e ano selecionados
+	const legalAnalysis: LegalAnalysisResult | null = useMemo(() => {
+		if (!hasConfiguredDays || days.length === 0) return null;
+		return analyzeWorkScheduleLegislation(days, activeAiRule, undefined, referenceDate);
+	}, [days, hasConfiguredDays, activeAiRule, referenceDate]);
 
 	return (
 		<>
@@ -319,12 +378,7 @@ export default function Home() {
 					onCurrentMonth={handleCurrentMonth}
 					onExportCsv={handleExportCsv}
 					onOpenSettings={() => setIsSettingsOpen(true)}
-					onOpenLegalModal={() => {
-						if (!legalAnalysis && days.length > 0) {
-							setLegalAnalysis(analyzeWorkScheduleLegislation(days));
-						}
-						setIsLegalModalOpen(true);
-					}}
+					onOpenLegalModal={() => setIsLegalModalOpen(true)}
 					theme={theme}
 					onToggleTheme={handleToggleTheme}
 				/>
@@ -341,6 +395,87 @@ export default function Home() {
 						onOpenSettings={() => setIsSettingsOpen(true)}
 						onOpenLegalModal={() => setIsLegalModalOpen(true)}
 					/>
+
+					{/* Alerta de Transição / Alarme Crítico de Violação Legal */}
+					{legalAnalysis && (legalAnalysis.isScale6x1 || legalAnalysis.weeklyWorkedHours >= 44 || legalAnalysis.isActiveViolation) && (
+						legalAnalysis.isActiveViolation ? (
+							// BLOCO VERMELHO DE ALARME (A partir de Janeiro/2027 na vigência das novas regras constitucionais)
+							<div className="p-4 rounded-xl border-2 border-rose-500/50 bg-rose-500/10 dark:bg-rose-950/40 text-rose-950 dark:text-rose-100 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 text-xs shadow-sm transition-all duration-300">
+								<div className="flex items-start gap-3">
+									<div className="h-9 w-9 rounded-lg bg-rose-500/20 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 mt-0.5">
+										<AlertOctagon className="h-5 w-5 animate-pulse" />
+									</div>
+									<div className="space-y-1">
+										<div className="flex items-center gap-2 flex-wrap">
+											<span className="px-2 py-0.5 rounded-md bg-rose-600 text-white font-bold text-[10px] uppercase tracking-wider shadow-xs">
+												ALARME LEGAL
+											</span>
+											<p className="font-bold text-foreground text-sm">
+												Escala Incompatível com a Legislação Vigente em {MONTH_NAMES[month - 1]} de {year}!
+											</p>
+										</div>
+										<p className="text-muted-foreground text-xs leading-relaxed max-w-4xl">
+											{legalAnalysis.isScale6x1 ? (
+												<>
+													Neste mês selecionado, a <strong>escala 6x1 é inconstitucional e proibida por lei</strong>. A legislação em vigor exige jornada máxima de <strong>{legalAnalysis.effectiveLimitHours}h semanais</strong> e no mínimo <strong>2 dias de descanso semanal remunerado (escala 5x2)</strong>, sem redução de salário. Todo trabalho no 6º dia deve ser pago como hora extraordinária (com adicional mínimo de 50% ou 100%) e sua escala deve ser readequada imediatamente.
+												</>
+											) : (
+												<>
+													Neste mês selecionado, sua jornada semanal de <strong>{legalAnalysis.weeklyWorkedHours}h</strong> excede o teto legal de <strong>{legalAnalysis.effectiveLimitHours}h semanais</strong>. A jornada máxima de 44h não é mais permitida por lei! O excesso de <strong>{Math.max(0, Math.round((legalAnalysis.weeklyWorkedHours - legalAnalysis.effectiveLimitHours) * 10) / 10)}h semanais</strong> constitui hora extra obrigatória com adicional de no mínimo 50% ou a carga horária deve ser reduzida para {legalAnalysis.effectiveLimitHours}h com salário integral preservado.
+												</>
+											)}
+										</p>
+									</div>
+								</div>
+								<Button
+									variant="destructive"
+									size="sm"
+									onClick={() => setIsLegalModalOpen(true)}
+									className="shrink-0 h-9 px-4 text-xs font-semibold bg-rose-600 hover:bg-rose-700 text-white shadow-sm"
+								>
+									🚨 Ver Alarme & Direitos
+								</Button>
+							</div>
+						) : (
+							// BLOCO AMARELO/ÂMBAR DE AVISO PREVENTIVO (Até Dezembro/2026 antes da vigência plena)
+							<div className="p-3.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-amber-900 dark:text-amber-200 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs transition-all duration-300">
+								<div className="flex items-start gap-2.5">
+									<Scale className="h-4 w-4 text-amber-600 dark:text-amber-400 shrink-0 mt-0.5" />
+									<div className="space-y-0.5">
+										<div className="flex items-center gap-2 flex-wrap">
+											<span className="px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-800 dark:text-amber-300 font-semibold text-[10px] uppercase tracking-wider">
+												Aviso Preventivo • {MONTH_NAMES[month - 1]} de {year}
+											</span>
+											<p className="font-bold text-foreground">
+												{legalAnalysis.isScale6x1
+													? 'Aviso aos trabalhadores em Escala 6x1:'
+													: 'Aviso aos trabalhadores com Jornada de 44h semanais:'}
+											</p>
+										</div>
+										<p className="text-muted-foreground text-[11px] leading-relaxed">
+											{legalAnalysis.isScale6x1 ? (
+												<>
+													Neste mês de {MONTH_NAMES[month - 1]} de {year}, a jornada ainda segue o regime anterior. Porém, a partir de <strong>16 de dezembro de 2026</strong>, a escala 6x1 reduz obrigatoriamente para <strong>5x2</strong> (no mínimo 2 dias de folga por semana sem corte de salário) e o primeiro teto cai para <strong>42h semanais</strong>. A partir de <strong>16 de dezembro de 2027</strong>, reduz para <strong>40h</strong>.
+												</>
+											) : (
+												<>
+													Neste mês de {MONTH_NAMES[month - 1]} de {year}, a jornada de 44h ainda é permitida. Contudo, o fim da escala 6x1 não se pauta apenas em um dia a mais de folga, mas também na <strong>redução obrigatória de carga horária</strong>: a jornada máxima semanal cai de 44h para <strong>42h semanais</strong> a partir de <strong>16 de dezembro de 2026</strong> e atinge o limite definitivo de <strong>40h semanais</strong> em <strong>16 de dezembro de 2027</strong>, com garantia de salário integral. Sua carga horária semanal deverá ser reduzida.
+												</>
+											)}
+										</p>
+									</div>
+								</div>
+								<Button
+									variant="outline"
+									size="sm"
+									onClick={() => setIsLegalModalOpen(true)}
+									className="shrink-0 h-8 text-xs bg-amber-500/15 border-amber-500/30 text-amber-900 dark:text-amber-100 hover:bg-amber-500/25"
+								>
+									Ver Diagnóstico
+								</Button>
+							</div>
+						)
+					)}
 
 					{/* Banner de Estado Limpo / Vazio (quando não há horários cadastrados) */}
 					{!hasConfiguredDays && (
@@ -370,13 +505,29 @@ export default function Home() {
 								<button
 									type="button"
 									onClick={() => setIsLegalModalOpen(true)}
-									className="hidden sm:inline-flex items-center gap-1 text-xs px-2.5 py-0.5 rounded-full bg-amber-500/10 text-amber-700 dark:text-amber-400 border border-amber-500/30 hover:bg-amber-500/20 transition-colors font-medium"
+									className={`hidden sm:inline-flex items-center gap-1.5 text-xs px-2.5 py-0.5 rounded-full border transition-colors font-medium ${
+										legalAnalysis.isActiveViolation
+											? 'bg-rose-500/15 text-rose-700 dark:text-rose-300 border-rose-500/40 hover:bg-rose-500/25 animate-pulse'
+											: legalAnalysis.isScale6x1 || legalAnalysis.weeklyWorkedHours >= 44 || legalAnalysis.exceedsEffectiveLimit
+												? 'bg-amber-500/10 text-amber-700 dark:text-amber-400 border-amber-500/30 hover:bg-amber-500/20'
+												: 'bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20'
+									}`}
 								>
-									<Scale className="h-3 w-3" />
+									{legalAnalysis.isActiveViolation ? (
+										<AlertOctagon className="h-3 w-3 text-rose-600 dark:text-rose-400 shrink-0" />
+									) : (
+										<Scale className="h-3 w-3 shrink-0" />
+									)}
 									<span>
-										{legalAnalysis.isScale6x1
-											? '⚠️ Escala 6x1 (Clique para diagnóstico)'
-											: `Escala ${legalAnalysis.scaleType.toUpperCase()}`}
+										{legalAnalysis.isActiveViolation
+											? (legalAnalysis.isScale6x1
+												? '🚨 Escala 6x1 Ilegal no Mês Vigente'
+												: `🚨 Jornada ${legalAnalysis.weeklyWorkedHours}h Excede Teto Legal (${legalAnalysis.effectiveLimitHours}h)`)
+											: legalAnalysis.isScale6x1
+												? '⚠️ Escala 6x1 (Redução p/ 5x2 em Dez/2026)'
+												: legalAnalysis.weeklyWorkedHours >= 44
+													? '⚠️ Jornada 44h (Redução de Carga p/ 42h em Dez/2026)'
+													: `Escala ${legalAnalysis.scaleType.toUpperCase()} (Regular)`}
 									</span>
 								</button>
 							)}
@@ -484,10 +635,7 @@ export default function Home() {
 
 				{/* Rodapé */}
 				<footer className="border-t border-border/60 py-6 mt-12 bg-card/30 text-center text-xs text-muted-foreground">
-					<p>
-            Calculadora de Jornada de Trabalho & Escalas • Construída com Next.js, Shadcn UI e Google
-            Gemini 3.5 Flash-Lite
-					</p>
+					<p>Desenvolvido por Glauber Pain</p>
 				</footer>
 			</div>
 

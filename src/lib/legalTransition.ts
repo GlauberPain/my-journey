@@ -12,12 +12,12 @@ import { calculateShiftWorkedMinutes, minutesToTime } from './calculator.ts';
  * Data padrão estimada da promulgação da Emenda Constitucional (outubro/2026).
  * Parametrizável via configuração ou variável de ambiente.
  */
-export const DEFAULT_PROMULGATION_DATE = '2026-10-15';
+export const DEFAULT_PROMULGATION_DATE = '2026-10-17';
 
 /**
- * Prazos da regra de transição previstos na PEC 221/2019:
- * - Fase 1: 60 dias após a promulgação (redução para 42h semanais, divisor 210)
- * - Fase 2: 12 meses após a entrada em vigor da Fase 1 (redução para 40h semanais, divisor 200)
+ * Prazos da regra de transição da jornada de trabalho (PEC 221/2019):
+ * - Fase 1: 16 de dezembro de 2026 (60 dias após a promulgação): teto reduz para 42h semanais (divisor 210) e obrigatoriedade de 2 folgas semanais (5x2).
+ * - Fase 2: 12 meses após a Fase 1 (16 de dezembro de 2027): teto semanal definitivo de 40h (divisor 200).
  */
 export const PHASE_1_DAYS_OFFSET = 60;
 export const PHASE_2_MONTHS_OFFSET = 12;
@@ -66,9 +66,9 @@ export function getTransitionMilestones(
 /**
  * Determina a fase da legislação com base na data do registro de ponto (date-based threshold)
  *
- * - date < Fase 1 (ex: < 2026-12-14): 'LEGACY_44H' (limite de 44h semanais)
- * - date >= Fase 1 e < Fase 2 (ex: 2026-12-14 a 2027-12-13): 'PHASE_1_42H' (limite de 42h semanais)
- * - date >= Fase 2 (ex: >= 2027-12-14): 'PHASE_2_40H' (limite de 40h semanais)
+ * - date < Fase 1 (ex: < 2026-12-16): 'LEGACY_44H' (limite de 44h semanais)
+ * - date >= Fase 1 e < Fase 2 (ex: 2026-12-16 a 2027-12-15): 'PHASE_1_42H' (limite de 42h semanais e escala 5x2)
+ * - date >= Fase 2 (ex: >= 2027-12-16): 'PHASE_2_40H' (limite de 40h semanais)
  */
 export function getTransitionPhase(
 	targetDate: string | Date,
