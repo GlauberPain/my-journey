@@ -62,7 +62,7 @@ export function PrintReport({
             Espelho de Ponto & Diagnóstico Legal de Jornada
 					</h1>
 					<p className="text-[10px] text-slate-600 mt-0.5">
-            Apuração mensal de horários, cálculo de banco de horas e conformidade trabalhista (CLT / CF)
+            Apuração de horários, escala de trabalho e conformidade trabalhista (CLT / CF)
 					</p>
 				</div>
 				<div className="text-right text-[10px]">
@@ -74,19 +74,15 @@ export function PrintReport({
 			</div>
 
 			{/* 2. RESUMO CONSOLIDADO DE HORAS */}
-			<div className="grid grid-cols-5 gap-2 mb-3 text-center border border-slate-300 rounded p-1.5 bg-slate-50">
+			<div className="grid grid-cols-4 gap-2 mb-3 text-center border border-slate-300 rounded p-1.5 bg-slate-50">
 				<div className="border-r border-slate-200 pr-1">
 					<span className="block text-[9px] uppercase font-bold text-slate-500">Horas Realizadas</span>
 					<span className="text-xs font-bold font-mono text-slate-900">{summary.formattedTotalWorked}</span>
 				</div>
 				<div className="border-r border-slate-200 pr-1">
-					<span className="block text-[9px] uppercase font-bold text-slate-500">Carga Prevista</span>
-					<span className="text-xs font-bold font-mono text-slate-700">{summary.formattedExpected}</span>
-				</div>
-				<div className="border-r border-slate-200 pr-1">
-					<span className="block text-[9px] uppercase font-bold text-slate-500">Banco de Horas</span>
-					<span className={`text-xs font-bold font-mono ${summary.totalBalanceMinutes >= 0 ? 'text-emerald-700' : 'text-rose-700'}`}>
-						{summary.formattedBalance}
+					<span className="block text-[9px] uppercase font-bold text-slate-500">Carga Semanal</span>
+					<span className="text-xs font-bold font-mono text-slate-800">
+						{analysis ? `${analysis.weeklyWorkedHours}h/sem` : '-'}
 					</span>
 				</div>
 				<div className="border-r border-slate-200 pr-1">
@@ -151,7 +147,6 @@ export function PrintReport({
 						<th className="border border-slate-300 px-1.5 py-1 text-center w-14">Int. Retorno</th>
 						<th className="border border-slate-300 px-1.5 py-1 text-center w-12">Saída</th>
 						<th className="border border-slate-300 px-1.5 py-1 text-center w-14">Líquido</th>
-						<th className="border border-slate-300 px-1.5 py-1 text-center w-14">Saldo</th>
 						<th className="border border-slate-300 px-1.5 py-1 text-left">Observações</th>
 					</tr>
 				</thead>
@@ -204,15 +199,6 @@ export function PrintReport({
 								</td>
 								<td className="border border-slate-300 px-1 py-0.5 text-center font-mono font-semibold">
 									{isWork && hasHours ? calc.formattedWorked : '-'}
-								</td>
-								<td className="border border-slate-300 px-1 py-0.5 text-center font-mono font-semibold">
-									{isWork && hasHours ? (
-										<span className={calc.isHolidayWork || calc.isOvertime ? 'text-emerald-700 font-bold' : calc.isDeficit ? 'text-rose-700' : ''}>
-											{calc.formattedBalance} {calc.isHolidayWork ? '(100%)' : ''}
-										</span>
-									) : (
-										'-'
-									)}
 								</td>
 								<td className="border border-slate-300 px-1.5 py-0.5 text-slate-600 truncate max-w-[140px]">
 									{isHoliday ? (day.holidayName ? `Feriado: ${day.holidayName}` : day.notes || '') : day.notes || ''}

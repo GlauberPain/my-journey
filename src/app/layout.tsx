@@ -2,9 +2,9 @@ import type { Metadata } from 'next';
 import './globals.css';
 
 export const metadata: Metadata = {
-	title: 'Calculadora de Jornada de Trabalho & Escalas | IA Gemini',
+	title: 'Calculadora de Jornada de Trabalho & Escalas | IA',
 	description:
-    'Calcule sua jornada de trabalho com calendário, tabela de horários, apuração de intervalos, saldo de banco de horas e assistente de IA Gemini.',
+    'Calcule sua jornada de trabalho com calendário, tabela de horários, apuração de intervalos, conformidade legal e assistente de IA.',
 };
 
 export default function RootLayout({

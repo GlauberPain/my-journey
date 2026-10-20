@@ -11,17 +11,20 @@ import {
 } from '@/lib/calculator';
 import { getHolidayName } from '@/lib/holidays';
 import { analyzeWorkScheduleLegislation, LegalAnalysisResult } from '@/lib/legalAnalysis';
-import { Header, MONTH_NAMES } from '@/components/Header';
-import { SummaryCards } from '@/components/SummaryCards';
-import { AiPromptCard } from '@/components/AiPromptCard';
-import { CalendarView } from '@/components/CalendarView';
-import { ScheduleTable } from '@/components/ScheduleTable';
-import { SettingsModal } from '@/components/SettingsModal';
-import { DayEditModal } from '@/components/DayEditModal';
-import { LegalRightsModal } from '@/components/LegalRightsModal';
-import { SplashScreen } from '@/components/SplashScreen';
-import { PrintReport } from '@/components/PrintReport';
-import { Button } from '@/components/ui/button';
+import {
+	Header,
+	MONTH_NAMES,
+	SummaryCards,
+	AiPromptCard,
+	CalendarView,
+	ScheduleTable,
+	SettingsModal,
+	DayEditModal,
+	LegalRightsModal,
+	SplashScreen,
+	PrintReport,
+} from '@/components';
+import { Button } from '@/components/ui';
 import { Calendar as CalendarIcon, Table as TableIcon, LayoutGrid, Scale, Inbox, AlertOctagon } from 'lucide-react';
 
 export default function Home() {
@@ -385,10 +388,10 @@ export default function Home() {
 
 				{/* Conteúdo Principal */}
 				<main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-					{/* Cards de Métricas e Banco de Horas */}
-					<SummaryCards summary={summary} />
+					{/* Cards de Métricas da Jornada */}
+					<SummaryCards summary={summary} legalAnalysis={legalAnalysis} />
 
-					{/* Card do Assistente de IA Gemini */}
+					{/* Card do Assistente de IA */}
 					<AiPromptCard
 						onApplyRules={handleApplyAiRules}
 						customApiKey={customApiKey}

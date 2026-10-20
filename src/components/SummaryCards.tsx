@@ -1,14 +1,17 @@
 import React from 'react';
-import { Card, CardContent } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui';
 import { MonthSummary } from '@/lib/types';
-import { Clock, TrendingUp, TrendingDown, CalendarCheck, Coffee, Sparkles } from 'lucide-react';
+import { LegalAnalysisResult } from '@/lib/legalAnalysis';
+import { Clock, CalendarCheck, Coffee, Scale } from 'lucide-react';
 
 interface SummaryCardsProps {
   summary: MonthSummary;
+  legalAnalysis?: LegalAnalysisResult | null;
 }
 
-export function SummaryCards({ summary }: SummaryCardsProps) {
-	const isPositive = summary.totalBalanceMinutes >= 0;
+export function SummaryCards({ summary, legalAnalysis }: SummaryCardsProps) {
+	const weeklyHours = legalAnalysis ? legalAnalysis.weeklyWorkedHours : null;
+	const isExceeding = legalAnalysis ? legalAnalysis.weeklyWorkedHours > legalAnalysis.effectiveLimitHours : false;
 
 	return (
 		<div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -17,13 +20,15 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
 				<CardContent className="p-5 flex items-center justify-between">
 					<div>
 						<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Total Realizado
+              Total no Mês
 						</p>
 						<h3 className="text-2xl font-bold mt-1 tracking-tight text-foreground">
 							{summary.formattedTotalWorked}
 						</h3>
 						<p className="text-xs text-muted-foreground mt-0.5">
-              Meta: {summary.formattedExpected}
+							{summary.holidayWorkedMinutes > 0
+								? `Inclui ${summary.formattedHolidayWorked} em feriados`
+								: 'Horas totais apuradas'}
 						</p>
 					</div>
 					<div className="h-11 w-11 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
@@ -32,40 +37,42 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
 				</CardContent>
 			</Card>
 
-			{/* Saldo de Horas */}
+			{/* Carga Semanal Apurada */}
 			<Card className="border-border/60 shadow-sm hover:shadow-md transition-shadow bg-gradient-to-br from-card to-card/50">
 				<CardContent className="p-5 flex items-center justify-between">
 					<div>
 						<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Banco de Horas
+              Carga Semanal
 						</p>
 						<h3
 							className={`text-2xl font-bold mt-1 tracking-tight ${
-								isPositive ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'
+								isExceeding
+									? 'text-rose-600 dark:text-rose-400'
+									: 'text-foreground'
 							}`}
 						>
-							{summary.formattedBalance}
+							{weeklyHours !== null ? (
+								<>
+									{weeklyHours}h <span className="text-sm font-normal text-muted-foreground">/ sem</span>
+								</>
+							) : (
+								'--'
+							)}
 						</h3>
 						<p className="text-xs text-muted-foreground mt-0.5">
-							{summary.holidayWorkedMinutes > 0 ? (
-								<span className="text-emerald-600 dark:text-emerald-400 font-semibold flex items-center gap-1">
-									<Sparkles className="h-3 w-3" /> Inclui {summary.formattedHolidayWorked} em feriados
-								</span>
-							) : isPositive ? (
-								'Horas extras acumuladas'
-							) : (
-								'Horas a compensar'
-							)}
+							{legalAnalysis
+								? `Teto CLT: ${legalAnalysis.effectiveLimitHours}h • ${legalAnalysis.isScale6x1 ? 'Escala 6x1' : legalAnalysis.scaleType ? `Escala ${legalAnalysis.scaleType}` : 'Jornada apurada'}`
+								: 'Defina os turnos na tabela'}
 						</p>
 					</div>
 					<div
 						className={`h-11 w-11 rounded-xl flex items-center justify-center ${
-							isPositive
-								? 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
-								: 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+							isExceeding
+								? 'bg-rose-500/10 text-rose-600 dark:text-rose-400'
+								: 'bg-emerald-500/10 text-emerald-600 dark:text-emerald-400'
 						}`}
 					>
-						{isPositive ? <TrendingUp className="h-5 w-5" /> : <TrendingDown className="h-5 w-5" />}
+						<Scale className="h-5 w-5" />
 					</div>
 				</CardContent>
 			</Card>
@@ -95,7 +102,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
 				<CardContent className="p-5 flex items-center justify-between">
 					<div>
 						<p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
-              Folgas, DSR & Feriados
+              Folgas & Descansos
 						</p>
 						<h3 className="text-2xl font-bold mt-1 tracking-tight text-foreground">
 							{summary.offDaysCount} <span className="text-sm font-normal text-muted-foreground">dias</span>
@@ -103,7 +110,7 @@ export function SummaryCards({ summary }: SummaryCardsProps) {
 						<p className="text-xs text-muted-foreground mt-0.5">
 							{summary.holidayDaysCount > 0
 								? `${summary.holidayDaysCount} feriado(s) no mês`
-								: 'Descansos e pausas'}
+								: 'Descansos e pausas semanais'}
 						</p>
 					</div>
 					<div className="h-11 w-11 rounded-xl bg-purple-500/10 text-purple-600 dark:text-purple-400 flex items-center justify-center">

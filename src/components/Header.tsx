@@ -1,5 +1,5 @@
 import React from 'react';
-import { Button } from '@/components/ui/button';
+import { Button } from '@/components/ui';
 import {
 	ChevronLeft,
 	ChevronRight,
@@ -99,18 +99,18 @@ export function Header({
 				</div>
 
 				{/* Centro: Navegador de Mês & Ano */}
-				<div className="flex items-center gap-1 bg-muted/60 p-1 rounded-xl border border-border shadow-xs">
+				<div className="w-full md:w-auto flex items-center justify-between md:justify-center gap-1 bg-muted/60 p-1 rounded-xl border border-border shadow-xs">
 					<Button
 						variant="ghost"
 						size="icon"
 						onClick={onPrevMonth}
-						className="h-8 w-8 hover:bg-background"
+						className="h-8 w-8 shrink-0 hover:bg-background"
 						title="Mês Anterior"
 					>
 						<ChevronLeft className="h-4 w-4" />
 					</Button>
 
-					<div className="px-3 py-0.5 text-center min-w-[130px]">
+					<div className="px-2 sm:px-3 py-0.5 text-center flex-1 md:flex-initial min-w-0 md:min-w-[130px]">
 						<span className="text-sm font-bold text-foreground">
 							{MONTH_NAMES[month - 1]}
 						</span>
@@ -123,7 +123,7 @@ export function Header({
 						variant="ghost"
 						size="icon"
 						onClick={onNextMonth}
-						className="h-8 w-8 hover:bg-background"
+						className="h-8 w-8 shrink-0 hover:bg-background"
 						title="Próximo Mês"
 					>
 						<ChevronRight className="h-4 w-4" />
@@ -133,7 +133,7 @@ export function Header({
 						variant="ghost"
 						size="sm"
 						onClick={onCurrentMonth}
-						className="text-xs h-8 px-2.5 text-muted-foreground hover:text-foreground font-medium"
+						className="text-xs h-8 px-2.5 text-muted-foreground hover:text-foreground font-medium shrink-0"
 					>
             Hoje
 					</Button>

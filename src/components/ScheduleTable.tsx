@@ -1,13 +1,16 @@
 import React from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+	Input,
+} from '@/components/ui';
 import { ScheduleDay, DayType } from '@/lib/types';
 import {
 	calculateDay,
 	minutesToTime,
 	calculateShiftWorkedMinutes,
-	getDayExpectedMinutes,
 } from '@/lib/calculator';
 import { Table as TableIcon, Copy, Check } from 'lucide-react';
 
@@ -92,15 +95,13 @@ export function ScheduleTable({
 								<th className="py-2.5 px-3 min-w-[110px]">Intervalo Fim</th>
 								<th className="py-2.5 px-3 min-w-[95px]">Fim</th>
 								<th className="py-2.5 px-3 min-w-[95px] text-center">Horas Líquidas</th>
-								<th className="py-2.5 px-3 min-w-[105px] text-center">Saldo / Extra</th>
 								<th className="py-2.5 px-3 min-w-[85px] text-right">Ações</th>
 							</tr>
 						</thead>
 						<tbody className="divide-y divide-border/60">
 							{weeks.map((weekDays, weekIdx) => {
-								// Cálculos consolidados da semana (Art. 7º, XIII da CF/88)
+								// Total de horas trabalhadas na semana
 								let weekWorked = 0;
-								let weekExpected = 0;
 
 								weekDays.forEach((d) => {
 									const isHoliday = d.isHoliday || d.dayType === 'holiday';
@@ -110,11 +111,8 @@ export function ScheduleTable({
 									} else if (d.dayType === 'work' && (d.startTime || d.endTime)) {
 										const { workedMinutes } = calculateShiftWorkedMinutes(d);
 										weekWorked += workedMinutes;
-										weekExpected += getDayExpectedMinutes(d, dailyExpectedMinutes);
 									}
 								});
-
-								const weekBalance = weekWorked - weekExpected;
 								const firstDayStr = weekDays[0].date.split('-').reverse().slice(0, 2).join('/');
 								const lastDayStr = weekDays[weekDays.length - 1].date.split('-').reverse().slice(0, 2).join('/');
 
@@ -239,31 +237,6 @@ export function ScheduleTable({
 														{isWork && (day.startTime || day.endTime) ? calc.formattedWorked : '--:--'}
 													</td>
 
-													{/* Saldo Diário */}
-													<td className="py-2 px-3 text-center font-mono">
-														{isHoliday && day.workedOnHoliday && (day.startTime || day.endTime) ? (
-															<Badge variant="success" className="text-[10px] py-0 px-1 font-bold">
-																{calc.formattedBalance} (100%)
-															</Badge>
-														) : isWork && (day.startTime || day.endTime) ? (
-															<span
-																className={`font-semibold ${
-																	calc.isOvertime
-																		? 'text-emerald-600 dark:text-emerald-400'
-																		: calc.isDeficit
-																			? 'text-rose-600 dark:text-rose-400'
-																			: 'text-muted-foreground'
-																}`}
-															>
-																{calc.formattedBalance}
-															</span>
-														) : isHoliday ? (
-															<span className="text-[10px] text-amber-700 dark:text-amber-400 italic">Folga Feriado</span>
-														) : (
-															<span className="text-muted-foreground/40">-</span>
-														)}
-													</td>
-
 													{/* Ações */}
 													<td className="py-2 px-3 text-right">
 														{isWork && !isHoliday && (
@@ -291,36 +264,23 @@ export function ScheduleTable({
 											);
 										})}
 
-										{/* Linha de Subtotal / Fechamento Semanal da Semana (Art. 7º, XIII CF/88) */}
+										{/* Linha de Fechamento Semanal */}
 										<tr className="bg-muted/40 hover:bg-muted/50 border-y-2 border-border/80 transition-colors text-xs">
-											<td colSpan={6} className="py-2.5 px-3">
+											<td colSpan={7} className="py-2.5 px-3">
 												<div className="flex flex-wrap items-center justify-between gap-2">
 													<span className="font-bold text-foreground flex items-center gap-1.5">
 														<span className="h-2 w-2 rounded-full bg-primary/70 inline-block" />
-														<span>Fechamento da Semana {weekIdx + 1}</span>
+														<span>Total da Semana {weekIdx + 1}</span>
 														<span className="text-[11px] font-normal text-muted-foreground">({firstDayStr} a {lastDayStr})</span>
 													</span>
-													<div className="flex items-center gap-2 text-[11px] text-muted-foreground">
-														<span>Realizado: <strong className="font-mono text-foreground font-semibold">{minutesToTime(weekWorked)}</strong></span>
-														<span>•</span>
-														<span>Meta Semanal: <span className="font-mono font-medium">{minutesToTime(weekExpected)}</span></span>
-													</div>
 												</div>
 											</td>
 											<td className="py-2.5 px-3 text-center font-mono">
 												<div className="flex flex-col items-center">
-													<span
-														className={`font-bold ${
-															weekBalance > 0
-																? 'text-emerald-600 dark:text-emerald-400'
-																: weekBalance < 0
-																	? 'text-rose-600 dark:text-rose-400'
-																	: 'text-muted-foreground'
-														}`}
-													>
-														{minutesToTime(weekBalance, true)}
+													<span className="font-bold text-foreground text-sm font-mono">
+														{minutesToTime(weekWorked)}
 													</span>
-													<span className="text-[9px] text-muted-foreground uppercase font-sans tracking-tight">Saldo Semanal</span>
+													<span className="text-[9px] text-muted-foreground uppercase font-sans tracking-tight">Total Semana</span>
 												</div>
 											</td>
 											<td className="py-2.5 px-3"></td>

@@ -20,6 +20,23 @@ export default defineConfig([
       indent: ['error', 'tab', { SwitchCase: 1 }],
       'no-mixed-spaces-and-tabs': 'error',
       'react-hooks/set-state-in-effect': 'off',
+      'no-restricted-imports': [
+        'error',
+        {
+          patterns: [
+            {
+              group: ['@/components/ui/*'],
+              message:
+                'Importe componentes de UI unificados diretamente de "@/components/ui" (ex: import { Button, Input } from "@/components/ui").',
+            },
+            {
+              group: ['@/components/*', '!@/components/ui'],
+              message:
+                'Importe componentes da aplicação unificados diretamente de "@/components" (ex: import { Header, SummaryCards } from "@/components").',
+            },
+          ],
+        },
+      ],
     },
   },
 ])

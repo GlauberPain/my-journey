@@ -1,8 +1,8 @@
-# ⏰ Calculadora de Jornada de Trabalho com IA (Gemini Flash)
+# ⏰ Calculadora de Jornada de Trabalho com IA
 
-Uma aplicação moderna e inteligente para gestão e cálculo de jornadas de trabalho, escalas (CLT, 5x2, 6x1, 12x36), apuração de intervalos, saldo de banco de horas e geração automatizada com inteligência artificial.
+Uma aplicação moderna e inteligente para cálculo de jornadas de trabalho, escalas (CLT, 5x2, 6x1, 12x36), apuração de intervalos, conformidade legal trabalhista e geração automatizada com inteligência artificial.
 
-Construída com **Next.js (App Router)**, **Tailwind CSS**, **Shadcn UI** e **Google Gemini Flash API**.
+Construída com **Next.js (App Router)**, **Tailwind CSS**, **Shadcn UI** e **IA Integrada**.
 
 ---
 
@@ -15,10 +15,10 @@ Construída com **Next.js (App Router)**, **Tailwind CSS**, **Shadcn UI** e **Go
   - Fim do Intervalo (retorno)
   - Hora de Fim
   - Horas Líquidas (cálculo automático em tempo real)
-  - Saldo diário (+ horas extras ou - horas a compensar)
+  - Totais semanais consolidados
   - Situação (Trabalho, Folga, DSR, Feriado, Atestado)
   - Botão de réplica rápida para todos os dias úteis do mês.
-- **Assistente de IA com Gemini Flash (o mais rápido e econômico)**:
+- **Assistente de IA**:
   - Descreva sua rotina em português simples (ex: *"Trabalho 5x2 das 08:00 às 17:48 com 1h de almoço"*).
   - A IA extrai as regras, calcula a carga horária e preenche automaticamente o calendário e a tabela.
 - **Segurança Total da Chave da API**:
@@ -38,13 +38,19 @@ Construída com **Next.js (App Router)**, **Tailwind CSS**, **Shadcn UI** e **Go
    npm install
    ```
 
-2. Configure sua chave da API do Google Gemini:
-   - Obtenha uma chave gratuita no [Google AI Studio](https://aistudio.google.com/).
-   - Crie ou edite o arquivo `.env.local` na raiz:
-     ```env
-     GEMINI_API_KEY=sua_chave_do_gemini_aqui
-     ```
-   *(Ou se preferir, você também pode inserir a chave diretamente pelo botão de "Configurações" na tela da aplicação)*.
+2. Configure sua chave da API do Google Gemini (Gratuita):
+   - **Site oficial**: [Google AI Studio (API Keys)](https://aistudio.google.com/app/apikey)
+   - **Passo a passo**:
+     1. Acesse [aistudio.google.com/app/apikey](https://aistudio.google.com/app/apikey) e faça login com sua conta Google.
+     2. Clique em **"Create API key"** (Criar chave de API).
+     3. Selecione ou crie um projeto Google Cloud com 1 clique.
+     4. Copie o código da chave gerada (inicia com `AIzaSy...`).
+   - **Como configurar no projeto**:
+     - *Opção A (Recomendada no desenvolvimento local ou Vercel)*: crie o arquivo `.env.local` na raiz:
+       ```env
+       GEMINI_API_KEY=sua_chave_do_gemini_aqui
+       ```
+     - *Opção B (Direto no navegador)*: abra a aplicação, clique no botão de **Configurações** (ícone de engrenagem no cabeçalho), acesse a aba **IA & Chave Gemini** e cole sua chave.
 
 3. Inicie o servidor de desenvolvimento:
    ```bash

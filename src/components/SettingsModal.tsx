@@ -1,9 +1,15 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+	Dialog,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+	Button,
+	Input,
+} from '@/components/ui';
 import {
 	Key,
 	ShieldCheck,
@@ -16,6 +22,7 @@ import {
 	Moon,
 	Database,
 	Sliders,
+	ExternalLink,
 } from 'lucide-react';
 
 interface SettingsModalProps {
@@ -123,7 +130,7 @@ export function SettingsModal({
 								: 'text-muted-foreground hover:text-foreground'
 						}`}
 					>
-            IA & Gemini API
+            IA & Chave Gemini
 					</button>
 					<button
 						type="button"
@@ -220,28 +227,68 @@ export function SettingsModal({
 						</div>
 					)}
 
-					{/* ABA 2: IA & GEMINI API */}
+					{/* ABA 2: IA & CHAVE GEMINI */}
 					{activeTab === 'ai' && (
-						<div className="space-y-3">
-							<div className="flex items-center justify-between">
-								<label className="font-semibold text-foreground flex items-center gap-1.5">
-									<Key className="h-4 w-4 text-primary" />
-									<span>Chave da Google Gemini API</span>
-								</label>
-								{hasServerKey && (
-									<span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
-										<ShieldCheck className="h-3.5 w-3.5" /> Configurada no environment
-									</span>
-								)}
+						<div className="space-y-4">
+							<div className="space-y-2">
+								<div className="flex items-center justify-between">
+									<label className="font-semibold text-foreground flex items-center gap-1.5">
+										<Key className="h-4 w-4 text-primary" />
+										<span>Chave da Google Gemini API</span>
+									</label>
+									{hasServerKey && (
+										<span className="text-[11px] text-emerald-600 dark:text-emerald-400 font-medium flex items-center gap-1">
+											<ShieldCheck className="h-3.5 w-3.5" /> Configurada no servidor
+										</span>
+									)}
+								</div>
+
+								<Input
+									type="password"
+									placeholder={hasServerKey ? 'Chave configurada no servidor (opcional sobrescrever)' : 'Cole sua chave aqui (AIzaSy...)'}
+									value={apiKeyInput}
+									onChange={(e) => setApiKeyInput(e.target.value)}
+									className="text-sm font-mono"
+								/>
 							</div>
 
-							<Input
-								type="password"
-								placeholder={hasServerKey ? '' : 'Chave da API Gemini (opcional)'}
-								value={apiKeyInput}
-								onChange={(e) => setApiKeyInput(e.target.value)}
-								className="text-sm font-mono"
-							/>
+							{/* Passo a passo para obter a chave gratuita */}
+							<div className="p-3.5 rounded-xl border border-primary/20 bg-primary/[0.04] space-y-3">
+								<div className="flex items-center justify-between gap-2">
+									<span className="font-semibold text-foreground flex items-center gap-1.5 text-xs">
+										<ExternalLink className="h-3.5 w-3.5 text-primary" />
+										Como gerar sua chave gratuita (Passo a Passo):
+									</span>
+									<a
+										href="https://aistudio.google.com/app/apikey"
+										target="_blank"
+										rel="noopener noreferrer"
+										className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline shrink-0"
+									>
+										<span>Abrir Google AI Studio</span>
+										<ExternalLink className="h-3 w-3" />
+									</a>
+								</div>
+
+								<ol className="space-y-1.5 text-[11px] text-muted-foreground list-decimal list-inside leading-relaxed">
+									<li>
+										Acesse o site oficial: <a href="https://aistudio.google.com/app/apikey" target="_blank" rel="noopener noreferrer" className="text-primary underline font-medium">aistudio.google.com/app/apikey</a> e entre com sua conta Google.
+									</li>
+									<li>
+										Clique no botão azul <strong className="text-foreground">"Create API key"</strong> (ou "Get API key").
+									</li>
+									<li>
+										Selecione um projeto do Google Cloud ou crie um novo projeto rapidamente em 1 clique.
+									</li>
+									<li>
+										Copie a chave gerada (inicia com <code className="px-1 py-0.5 rounded bg-muted font-mono text-[10px] text-foreground">AIzaSy...</code>) e cole no campo acima.
+									</li>
+								</ol>
+
+								<p className="text-[10px] text-muted-foreground pt-1 border-t border-border/60">
+									💡 A cota gratuita fornecida pelo Google é 100% grátis e suficiente para cadastrar jornadas e calcular escalas sem custos.
+								</p>
+							</div>
 						</div>
 					)}
 

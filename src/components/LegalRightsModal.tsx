@@ -1,9 +1,15 @@
 'use client';
 
 import React from 'react';
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
+import {
+	Dialog,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+	Button,
+	Badge,
+} from '@/components/ui';
 import { LegalAnalysisResult } from '@/lib/legalAnalysis';
 import {
 	Scale,

@@ -1,9 +1,16 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Dialog, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
+import {
+	Dialog,
+	DialogHeader,
+	DialogTitle,
+	DialogDescription,
+	DialogFooter,
+	Button,
+	Input,
+	Badge,
+} from '@/components/ui';
 import { ScheduleDay, DayType } from '@/lib/types';
 import { calculateDay } from '@/lib/calculator';
 import { Calendar, Sparkles } from 'lucide-react';
@@ -157,25 +164,14 @@ export function DayEditModal({
 						{/* Apuração em tempo real dentro do modal */}
 						<div className="p-3 rounded-lg bg-muted/60 border border-border flex items-center justify-between text-xs font-mono">
 							<div>
-								<span className="text-muted-foreground">Horas Líquidas: </span>
-								<span className="font-bold text-foreground">{calc.formattedWorked}</span>
+								<span className="text-muted-foreground">Horas do Dia: </span>
+								<span className="font-bold text-foreground text-sm">{calc.formattedWorked}</span>
 							</div>
-							<div>
-								<span className="text-muted-foreground">Saldo: </span>
-								<span
-									className={`font-bold ${
-										calc.isHolidayWork
-											? 'text-emerald-600 dark:text-emerald-400'
-											: calc.isOvertime
-												? 'text-emerald-600 dark:text-emerald-400'
-												: calc.isDeficit
-													? 'text-rose-600 dark:text-rose-400'
-													: 'text-foreground'
-									}`}
-								>
-									{calc.formattedBalance} {calc.isHolidayWork ? '(100% Extra)' : ''}
-								</span>
-							</div>
+							{calc.isHolidayWork && (
+								<Badge variant="success" className="text-[10px]">
+									Trabalho em Feriado (100%)
+								</Badge>
+							)}
 						</div>
 					</div>
 				)}

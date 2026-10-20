@@ -95,7 +95,6 @@ Exemplo 2 - Escala 5x2 Padrão 44h (8h48/dia):
 		];
 
 		let geminiResponse: Response | null = null;
-		let selectedModel = '';
 		let lastErrorDetails = '';
 
 		for (const model of candidateModels) {
@@ -120,13 +119,12 @@ Exemplo 2 - Escala 5x2 Padrão 44h (8h48/dia):
 
 				if (res.ok) {
 					geminiResponse = res;
-					selectedModel = model;
 					break;
 				} else {
 					const errData = await res.json().catch(() => ({}));
 					const errMsg = errData?.error?.message || `Status HTTP ${res.status}`;
-					lastErrorDetails = `[${model}]: ${errMsg}`;
-					console.error(`Falha no modelo ${model}:`, errMsg);
+					lastErrorDetails = errMsg;
+					console.error('Falha na chamada da API:', errMsg);
 
 					if (errMsg.toLowerCase().includes('api key') || res.status === 403) {
 						break;
@@ -135,7 +133,7 @@ Exemplo 2 - Escala 5x2 Padrão 44h (8h48/dia):
 			} catch (err: unknown) {
 				const msg = err instanceof Error ? err.message : 'Erro de conexão na requisição.';
 				lastErrorDetails = msg;
-				console.error(`Exceção ao chamar ${model}:`, err);
+				console.error('Exceção ao chamar API:', err);
 			}
 		}
 
@@ -205,7 +203,6 @@ Exemplo 2 - Escala 5x2 Padrão 44h (8h48/dia):
 
 		return NextResponse.json({
 			success: true,
-			modelUsed: selectedModel,
 			schedule: parsedData,
 		});
 	} catch (error: unknown) {

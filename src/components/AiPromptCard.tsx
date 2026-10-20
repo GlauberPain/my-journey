@@ -1,8 +1,13 @@
 import React, { useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Badge } from '@/components/ui/badge';
+import {
+	Card,
+	CardContent,
+	CardHeader,
+	CardTitle,
+	CardDescription,
+	Button,
+	Input,
+} from '@/components/ui';
 import { Sparkles, Loader2, AlertCircle, CheckCircle2, Scale } from 'lucide-react';
 import { AiRuleResponse } from '@/lib/types';
 
@@ -167,7 +172,7 @@ export function AiPromptCard({
 			const data = await res.json();
 
 			if (!res.ok) {
-				throw new Error(data.error || 'Erro ao processar jornada com IA.');
+				throw new Error(data.error || 'Erro ao analisar jornada com IA.');
 			}
 
 			if (data.schedule) {
@@ -191,9 +196,9 @@ export function AiPromptCard({
 							<Sparkles className="h-4 w-4" />
 						</div>
 						<div>
-							<CardTitle className="text-base font-semibold">Assistente IA de Jornada & Escala 6x1</CardTitle>
+							<CardTitle className="text-base font-semibold">Assistente IA de Análise de Jornada & Escala</CardTitle>
 							<CardDescription className="text-xs">
-                Descreva sua rotina em texto simples. A IA preenche sua tabela e analisa seu enquadramento legal na lei.
+                Descreva sua rotina em texto simples. A IA analisa sua escala de trabalho e diagnostica seus direitos trabalhistas.
 							</CardDescription>
 						</div>
 					</div>
@@ -219,12 +224,12 @@ export function AiPromptCard({
 						{loading ? (
 							<>
 								<Loader2 className="h-4 w-4 animate-spin" />
-								<span>Calculando...</span>
+								<span>Analisando Escala...</span>
 							</>
 						) : (
 							<>
 								<Sparkles className="h-4 w-4" />
-								<span>Criar Jornada & Analisar Lei</span>
+								<span>Analisar Jornada & Direitos</span>
 							</>
 						)}
 					</Button>
@@ -276,7 +281,7 @@ export function AiPromptCard({
 							<div className="space-y-1">
 								<div className="flex items-center gap-2">
 									<span className="font-semibold text-emerald-800 dark:text-emerald-300">
-                    Fórmula Gerada: {lastResult.formula}
+                    Escala Identificada: {lastResult.formula}
 									</span>
 								</div>
 								<p className="text-muted-foreground">{lastResult.explanation}</p>
