@@ -388,9 +388,6 @@ export default function Home() {
 
 				{/* Conteúdo Principal */}
 				<main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-6">
-					{/* Cards de Métricas da Jornada */}
-					<SummaryCards summary={summary} legalAnalysis={legalAnalysis} />
-
 					{/* Card do Assistente de IA */}
 					<AiPromptCard
 						onApplyRules={handleApplyAiRules}
@@ -398,6 +395,9 @@ export default function Home() {
 						onOpenSettings={() => setIsSettingsOpen(true)}
 						onOpenLegalModal={() => setIsLegalModalOpen(true)}
 					/>
+
+					{/* Cards de Métricas da Jornada */}
+					<SummaryCards summary={summary} legalAnalysis={legalAnalysis} />
 
 					{/* Alerta de Transição / Alarme Crítico de Violação Legal */}
 					{legalAnalysis && (legalAnalysis.isScale6x1 || legalAnalysis.weeklyWorkedHours >= 44 || legalAnalysis.isActiveViolation) && (
