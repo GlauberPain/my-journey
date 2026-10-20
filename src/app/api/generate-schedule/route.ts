@@ -37,6 +37,15 @@ Você é um especialista em cálculos de jornada de trabalho e escalas (CLT, 5x2
 O usuário vai descrever como ele trabalha em linguagem natural.
 Sua missão é extrair as regras de horário para cada dia da semana e retornar EXCLUSIVAMENTE um objeto JSON válido.
 
+REGRA OBRIGATÓRIA DE VALIDAÇÃO (DIAS DE TRABALHO):
+Se o usuário esquecer de indicar em quais dias ele trabalha ou não especificar sua escala (por exemplo, enviou apenas "trabalho das 08:00 às 17:00", "faço 8 horas por dia", "entro às 9 e saio às 18 com almoço", sem especificar se é de segunda a sexta, 5x2, 6x1, 12x36, fins de semana, ou quais dias da semana trabalha):
+Você NUNCA deve inventar, supor ou preencher dias de trabalho automaticamente.
+Nessa situação, retorne OBRIGATORIAMENTE E EXCLUSIVAMENTE o seguinte JSON de erro:
+{
+  "error": "Falta indicar quais dias você trabalha (por exemplo: de segunda a sexta, escala 6x1, escala 5x2, plantão 12x36, etc.). Por favor, informe os dias da semana para podermos analisar sua jornada."
+}
+
+Se o usuário tiver indicado os dias de trabalho ou a escala, siga as regras abaixo:
 Regras do retorno:
 1. dayOfWeek: número de 0 a 6 (0 = Domingo, 1 = Segunda, 2 = Terça, 3 = Quarta, 4 = Quinta, 5 = Sexta, 6 = Sábado).
 2. dayType: "work" para dias trabalhados, "off" para folgas/DSR.
@@ -157,48 +166,66 @@ Exemplo 2 - Escala 5x2 Padrão 44h (8h48/dia):
 		}
 
 		// Sanitiza e faz o parse do JSON
-		const parsedData: AiRuleResponse = JSON.parse(candidateText);
+		const cleanJson = candidateText.replace(/^```json\s*/i, '').replace(/^```\s*/i, '').replace(/```\s*$/i, '').trim();
+		const parsedData: (Partial<AiRuleResponse> & { error?: string }) = JSON.parse(cleanJson);
+
+		// Se a IA sinalizou falta de informações ou erro de validação
+		if (parsedData.error) {
+			return NextResponse.json(
+				{ error: parsedData.error },
+				{ status: 400 }
+			);
+		}
+
+		// Se não há regras de dias de trabalho válidas
+		const workRules = Array.isArray(parsedData.rules)
+			? parsedData.rules.filter((r) => r.dayType === 'work' && r.startTime && r.endTime)
+			: [];
+
+		if (workRules.length === 0) {
+			return NextResponse.json(
+				{ error: 'Falta indicar quais dias você trabalha (por exemplo: de segunda a sexta, escala 6x1, escala 5x2, etc.). Por favor, informe seus dias de trabalho.' },
+				{ status: 400 }
+			);
+		}
 
 		// Recalcula matematicamente as horas a partir dos horários reais das regras, sem arredondar indevidamente
 		if (Array.isArray(parsedData.rules)) {
-			const workRules = parsedData.rules.filter((r) => r.dayType === 'work' && r.startTime && r.endTime);
-			if (workRules.length > 0) {
-				let totalWeeklyMins = 0;
-				workRules.forEach((r) => {
-					const { workedMinutes } = calculateShiftWorkedMinutes(r);
-					totalWeeklyMins += workedMinutes;
-				});
+			let totalWeeklyMins = 0;
+			workRules.forEach((r) => {
+				const { workedMinutes } = calculateShiftWorkedMinutes(r);
+				totalWeeklyMins += workedMinutes;
+			});
 
-				const avgDailyMins = Math.round(totalWeeklyMins / workRules.length);
-				const formatHoursMinutes = (totalMins: number) => {
-					const h = Math.floor(totalMins / 60);
-					const m = totalMins % 60;
-					return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`;
-				};
+			const avgDailyMins = Math.round(totalWeeklyMins / workRules.length);
+			const formatHoursMinutes = (totalMins: number) => {
+				const h = Math.floor(totalMins / 60);
+				const m = totalMins % 60;
+				return m === 0 ? `${h}h` : `${h}h${String(m).padStart(2, '0')}`;
+			};
 
-				const weeklyStr = formatHoursMinutes(totalWeeklyMins);
-				const dailyStr = formatHoursMinutes(avgDailyMins);
+			const weeklyStr = formatHoursMinutes(totalWeeklyMins);
+			const dailyStr = formatHoursMinutes(avgDailyMins);
 
-				const weekdayRules = workRules.filter((r) => r.dayOfWeek >= 1 && r.dayOfWeek <= 5);
-				const saturdayRule = workRules.find((r) => r.dayOfWeek === 6);
+			const weekdayRules = workRules.filter((r) => r.dayOfWeek >= 1 && r.dayOfWeek <= 5);
+			const saturdayRule = workRules.find((r) => r.dayOfWeek === 6);
 
-				let formulaDesc = '';
-				if (weekdayRules.length === 5 && saturdayRule) {
-					const weekdayMins = calculateShiftWorkedMinutes(weekdayRules[0]).workedMinutes;
-					const satMins = calculateShiftWorkedMinutes(saturdayRule).workedMinutes;
-					if (weekdayMins !== satMins) {
-						formulaDesc = `${weeklyStr} semanais (Seg-Sex ${formatHoursMinutes(weekdayMins)}, Sáb ${formatHoursMinutes(satMins)})`;
-					}
+			let formulaDesc = '';
+			if (weekdayRules.length === 5 && saturdayRule) {
+				const weekdayMins = calculateShiftWorkedMinutes(weekdayRules[0]).workedMinutes;
+				const satMins = calculateShiftWorkedMinutes(saturdayRule).workedMinutes;
+				if (weekdayMins !== satMins) {
+					formulaDesc = `${weeklyStr} semanais (Seg-Sex ${formatHoursMinutes(weekdayMins)}, Sáb ${formatHoursMinutes(satMins)})`;
 				}
-
-				if (!formulaDesc) {
-					formulaDesc = `${weeklyStr} semanais - ${dailyStr}/dia`;
-				}
-
-				parsedData.weeklyTargetHours = Number((totalWeeklyMins / 60).toFixed(2));
-				parsedData.dailyTargetHours = Number((avgDailyMins / 60).toFixed(2));
-				parsedData.formula = formulaDesc;
 			}
+
+			if (!formulaDesc) {
+				formulaDesc = `${weeklyStr} semanais - ${dailyStr}/dia`;
+			}
+
+			parsedData.weeklyTargetHours = Number((totalWeeklyMins / 60).toFixed(2));
+			parsedData.dailyTargetHours = Number((avgDailyMins / 60).toFixed(2));
+			parsedData.formula = formulaDesc;
 		}
 
 		return NextResponse.json({

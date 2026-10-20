@@ -70,15 +70,20 @@ export function ScheduleTable({
 
 	return (
 		<Card className="border-border/60 shadow-sm overflow-hidden">
-			<CardHeader className="pb-3 flex flex-row items-center justify-between">
+			<CardHeader className="pb-3 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
 				<div className="flex items-center gap-2">
-					<TableIcon className="h-5 w-5 text-primary" />
+					<TableIcon className="h-5 w-5 text-primary shrink-0" />
 					<div>
 						<CardTitle className="text-base font-semibold">Tabela Detalhada de Horários & Feriados</CardTitle>
 						<p className="text-xs text-muted-foreground">
               Feriados têm a meta zerada automaticamente. Ao sinalizar trabalho no feriado, todas as horas contam como 100% extras!
 						</p>
 					</div>
+				</div>
+				<div className="flex items-center gap-2 text-xs text-muted-foreground self-start sm:self-center shrink-0">
+					<span className="text-[11px] font-medium text-primary/90 bg-primary/10 px-2.5 py-1 rounded-full border border-primary/20 flex items-center gap-1">
+						← Deslize para ver todos os campos →
+					</span>
 				</div>
 			</CardHeader>
 
